@@ -61,6 +61,12 @@ class GameEngine {
   /// سنوات التدبير السردية (البند 6) فلا تتكرر السنة نفسها حرفيا.
   int yearlyCount = 0;
 
+  /// صدى آخر حدث عالمي نجا منه اللاعب (البند 6، الجولة الثانية):
+  /// سنة التدبير التالية تحمل خيار متابعة مرتبطا به، ثم تُغلق
+  /// النافذة بعدها سواء أُخذ الخيار أم لا.
+  String? lastWorldTitle;
+  bool worldEchoPending = false;
+
   Country get country =>
       countries.firstWhere((c) => c.name == person.country, orElse: () => countries.first);
 
@@ -135,6 +141,8 @@ class GameEngine {
     pendingNextId = null;
     yearlyTurn = false;
     yearlyCount = 0;
+    lastWorldTitle = null;
+    worldEchoPending = false;
     // المسيرة تنتهي بالتقاعد بين 60 و75، وتقنية البداية تؤثر قليلا.
     lifespan = (62 + (stats.tech - 50) ~/ 5 + _r.nextInt(16))
         .clamp(58, 75);
@@ -186,6 +194,7 @@ class GameEngine {
         cycle: yearlyCount,
         modelLevel: modelLevel,
         achievementCount: achievements.length,
+        worldEchoTitle: worldEchoPending ? lastWorldTitle : null,
       );
       yearlyCount++;
       return event;
@@ -239,6 +248,15 @@ class GameEngine {
       yearlyTurn = false;
     } else {
       yearlyTurn = true;
+    }
+    // صدى العالم: سنة التدبير تُغلق نافذة الصدى بعد تطبيقها،
+    // والنجاة من حدث عالمي تفتح نافذة جديدة باسمه.
+    if (event != null && event.id.startsWith('yearly_')) {
+      worldEchoPending = false;
+    }
+    if (wasWorld && choice.deathCause == null) {
+      lastWorldTitle = event?.title;
+      worldEchoPending = true;
     }
     if (event != null) {
       log.add(LogEntry(
@@ -449,6 +467,8 @@ class GameEngine {
         'pendingNextId': pendingNextId,
         'yearlyTurn': yearlyTurn,
         'yearlyCount': yearlyCount,
+        'lastWorldTitle': lastWorldTitle,
+        'worldEchoPending': worldEchoPending,
         'currentEventId': currentEvent?.id,
       };
 
@@ -477,6 +497,8 @@ class GameEngine {
     engine.pendingNextId = j['pendingNextId'] as String?;
     engine.yearlyTurn = j['yearlyTurn'] as bool? ?? false;
     engine.yearlyCount = (j['yearlyCount'] as num?)?.toInt() ?? 0;
+    engine.lastWorldTitle = j['lastWorldTitle'] as String?;
+    engine.worldEchoPending = j['worldEchoPending'] as bool? ?? false;
     final eventId = j['currentEventId'] as String?;
     if (eventId != null && !engine.isDead) {
       // سنة التدبير الحالية أُحصيت عند اختيارها، فإطارها هو
@@ -487,6 +509,9 @@ class GameEngine {
               cycle: engine.yearlyCount > 0 ? engine.yearlyCount - 1 : 0,
               modelLevel: engine.modelLevel,
               achievementCount: engine.achievements.length,
+              worldEchoTitle: engine.worldEchoPending
+                  ? engine.lastWorldTitle
+                  : null,
             )
           : engine._findEvent(eventId);
     }

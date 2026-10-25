@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ai_empire/data/world_events.dart';
 import 'package:ai_empire/data/yearly_events.dart';
 import 'package:ai_empire/game_engine.dart';
 
@@ -39,6 +40,58 @@ void main() {
     expect(legacyRich.effect.reputation, greaterThan(legacyPoor.effect.reputation));
     expect(legacyRich.cash, greaterThan(legacyPoor.cash));
     expect(legacyRich.effect.money, greaterThan(legacyPoor.effect.money));
+  });
+
+  test('صدى العالم: سنة التدبير بعد حدث عالمي تحمل خيار متابعة باسمه ثم تُغلق النافذة', () {
+    final engine = GameEngine()..newLife();
+    // حدث عالمي مباشر، ثم النجاة منه تفتح نافذة الصدى.
+    engine.currentEvent = worldEvents.first;
+    final worldTitle = worldEvents.first.title;
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    expect(engine.worldEchoPending, isTrue);
+    expect(engine.lastWorldTitle, worldTitle);
+    // سنة التدبير التالية (يفرضها yearlyTurn بعد الحدث المصيري).
+    engine.nextEvent();
+    expect(engine.currentEvent!.id.startsWith('yearly_'), isTrue);
+    final echo = engine.currentEvent!.choices
+        .where((c) => c.text.contains(worldTitle));
+    expect(echo.length, 1,
+        reason: 'سنة التدبير بعد حدث عالمي يجب أن تحمل خيار صدى واحدا باسمه');
+    // تطبيق أي خيار في سنة التدبير يغلق النافذة: السنة التالية بلا صدى.
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    expect(engine.worldEchoPending, isFalse);
+    engine.yearlyTurn = true;
+    engine.nextEvent();
+    expect(
+        engine.currentEvent!.choices
+            .where((c) => c.text.contains(worldTitle))
+            .length,
+        0,
+        reason: 'نافذة الصدى تُغلق بعد سنة تدبير واحدة');
+  });
+
+  test('صدى العالم يبقى عند الاستئناف قبل تطبيق سنة التدبير', () {
+    final engine = GameEngine()..newLife();
+    engine.currentEvent = worldEvents.first;
+    final worldTitle = worldEvents.first.title;
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    engine.nextEvent();
+    expect(engine.currentEvent!.id.startsWith('yearly_'), isTrue);
+    final restored = GameEngine.fromJson(engine.toJson());
+    expect(restored.worldEchoPending, isTrue);
+    expect(
+        restored.currentEvent!.choices
+            .where((c) => c.text.contains(worldTitle))
+            .length,
+        1,
+        reason: 'الاستئناف قبل تطبيق سنة التدبير يجب أن يعيد خيار الصدى نفسه');
+  });
+
+  test('سنة التدبير بلا صدى تحافظ على عدد خياراتها الأصلي', () {
+    expect(yearlyEventForAge(25).choices.length, 5);
+    expect(yearlyEventForAge(40).choices.length, 5);
+    expect(yearlyEventForAge(60).choices.length, 4);
+    expect(yearlyEventForAge(25, worldEchoTitle: 'حدث تجريبي').choices.length, 6);
   });
 
   test('المحرك يحصي سنوات التدبير ويحفظ العدد مع الاستئناف', () {

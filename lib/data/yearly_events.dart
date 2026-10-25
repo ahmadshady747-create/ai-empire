@@ -11,7 +11,46 @@ import 'events.dart';
 /// يظهر خيار إرث إضافي: ما بنيته قديما (مستوى النموذج والإنجازات)
 /// يبقى مؤثرا حتى النهاية، وأثره يكبر مع مستوى النموذج، فلا تموت
 /// الأنظمة القديمة بمجرد تقدم العمر.
+/// البند 6 (إيقاع متكامل)، الجولة الثانية: صدى أحداث العالم.
+/// بعد النجاة من حدث عالمي، تحمل سنة التدبير التالية خيار متابعة
+/// واحدا مرتبطا بذلك الحدث بالاسم، فلا يبقى الحدث العالمي شاشة
+/// عابرة بل يتداخل مع إيقاع السنوات. النافذة تُغلق بعد سنة
+/// التدبير تلك سواء أُخذ الخيار أم لا (يغلقها المحرك)، فلا يتكرر
+/// الصدى ولا يعلق إلى الأبد.
 LifeEvent yearlyEventForAge(
+  int age, {
+  int cycle = 0,
+  int modelLevel = 0,
+  int achievementCount = 0,
+  String? worldEchoTitle,
+}) {
+  final base = _yearlyEventForAge(
+    age,
+    cycle: cycle,
+    modelLevel: modelLevel,
+    achievementCount: achievementCount,
+  );
+  if (worldEchoTitle == null) return base;
+  return LifeEvent(
+    id: base.id,
+    minAge: base.minAge,
+    maxAge: base.maxAge,
+    title: base.title,
+    story: base.story,
+    choices: [
+      ...base.choices,
+      c(
+        '🔁 أستثمر في درس "$worldEchoTitle": أحوّله إلى إجراء دائم في شركتي',
+        'الدرس لم يبق ذكرى: صار إجراء دائما، وسمعتك وبحثك تقدما معا.',
+        const Effect(reputation: 4, research: 6, money: 2),
+        cash: 5000,
+        jump: 1,
+      ),
+    ],
+  );
+}
+
+LifeEvent _yearlyEventForAge(
   int age, {
   int cycle = 0,
   int modelLevel = 0,
