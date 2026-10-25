@@ -181,6 +181,12 @@ void main() {
     expect(engine.currentEvent!.choices.first.yearlyFocus, 'research');
     engine.applyChoice(engine.currentEvent!.choices.first);
     expect(engine.yearlyMomentum, 'research');
+    // قيم حتمية قبل القياس: بداية اللعبة عشوائية (تقنية 60-95)،
+    // وخيار البحث يضيف +8 تقنية، فبداية 93+ تُشبع التقنية عند 100
+    // وتبتلع مكافأة الزخم +2 بالتقريب — وهذا ما أسقط بناء 1.12.0
+    // في CI رغم نجاحه محليا. التثبيت على 50 يجعل المكافأة مرئية دائما.
+    engine.stats.tech = 50;
+    engine.stats.research = 50;
     // الحدث المصيري التالي: خياره الأول لا يمنح بحثا بذاته،
     // فأي زيادة بحث هي مكافأة الزخم وحدها.
     engine.currentEvent = allEvents.first;
