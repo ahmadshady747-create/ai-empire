@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 class StartScreen extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback? onContinue;
+  final VoidCallback? onManagement;
   final String? savedName;
   final int? savedAge;
   final int livesPlayed;
@@ -14,6 +15,7 @@ class StartScreen extends StatelessWidget {
     super.key,
     required this.onStart,
     this.onContinue,
+    this.onManagement,
     this.savedName,
     this.savedAge,
     required this.livesPlayed,
@@ -77,6 +79,18 @@ class StartScreen extends StatelessWidget {
                     ),
                     child: const Text('ابدأ شركة جديدة 🚀'),
                   ),
+                  if (onManagement != null) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: onManagement,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        textStyle: const TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                      child: const Text('لوحة الإدارة الجديدة 📊'),
+                    ),
+                  ],
                   if (onContinue != null && savedName != null) ...[
                     const SizedBox(height: 12),
                     OutlinedButton(
