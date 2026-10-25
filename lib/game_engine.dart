@@ -57,6 +57,10 @@ class GameEngine {
   /// بعد حدث مصيري، تأتي سنة تدبير قبل الحدث المصيري التالي.
   bool yearlyTurn = false;
 
+  /// عدد سنوات التدبير التي مرّت في هذه الرحلة: تدور به إطارات
+  /// سنوات التدبير السردية (البند 6) فلا تتكرر السنة نفسها حرفيا.
+  int yearlyCount = 0;
+
   Country get country =>
       countries.firstWhere((c) => c.name == person.country, orElse: () => countries.first);
 
@@ -130,6 +134,7 @@ class GameEngine {
     lastWorldAge = -99;
     pendingNextId = null;
     yearlyTurn = false;
+    yearlyCount = 0;
     // المسيرة تنتهي بالتقاعد بين 60 و75، وتقنية البداية تؤثر قليلا.
     lifespan = (62 + (stats.tech - 50) ~/ 5 + _r.nextInt(16))
         .clamp(58, 75);
@@ -176,7 +181,14 @@ class GameEngine {
     // 2. سنة تدبير بين الأحداث المصيرية.
     if (yearlyTurn && age >= 6) {
       yearlyTurn = false;
-      return yearlyEventForAge(age);
+      final event = yearlyEventForAge(
+        age,
+        cycle: yearlyCount,
+        modelLevel: modelLevel,
+        achievementCount: achievements.length,
+      );
+      yearlyCount++;
+      return event;
     }
     yearlyTurn = false;
     // حدث عالمي كل 7 سنوات على الأقل بعد سن 18، باحتمال 65%.
@@ -436,6 +448,7 @@ class GameEngine {
         'lastWorldAge': lastWorldAge,
         'pendingNextId': pendingNextId,
         'yearlyTurn': yearlyTurn,
+        'yearlyCount': yearlyCount,
         'currentEventId': currentEvent?.id,
       };
 
@@ -463,10 +476,18 @@ class GameEngine {
     engine.lastWorldAge = (j['lastWorldAge'] as num).toInt();
     engine.pendingNextId = j['pendingNextId'] as String?;
     engine.yearlyTurn = j['yearlyTurn'] as bool? ?? false;
+    engine.yearlyCount = (j['yearlyCount'] as num?)?.toInt() ?? 0;
     final eventId = j['currentEventId'] as String?;
     if (eventId != null && !engine.isDead) {
+      // سنة التدبير الحالية أُحصيت عند اختيارها، فإطارها هو
+      // yearlyCount - 1، لا الإطار التالي.
       engine.currentEvent = eventId.startsWith('yearly_')
-          ? yearlyEventForAge(engine.age)
+          ? yearlyEventForAge(
+              engine.age,
+              cycle: engine.yearlyCount > 0 ? engine.yearlyCount - 1 : 0,
+              modelLevel: engine.modelLevel,
+              achievementCount: engine.achievements.length,
+            )
           : engine._findEvent(eventId);
     }
     return engine;
