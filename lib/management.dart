@@ -24,6 +24,62 @@ class Rival {
       );
 }
 
+/// عقد خدمة واحد من خدمات الذكاء الاصطناعي حول النماذج.
+/// كل خدمة أصلية من تصميم هذه اللعبة: اسمها وعميلها الخيالي
+/// وإيرادها وتكلفتها وخطرها المتشابك. لا خدمة دخل مجاني هنا.
+class ServiceContract {
+  final String id;
+  final String name;
+  final String clientName;
+  final int weeklyRevenue;
+  final int weeklyCost;
+  final int computeUsed;
+  final bool teamLoad;
+  final bool bigClient;
+  final bool hostsRival;
+  int weeksActive;
+
+  ServiceContract({
+    required this.id,
+    required this.name,
+    required this.clientName,
+    required this.weeklyRevenue,
+    required this.weeklyCost,
+    required this.computeUsed,
+    required this.teamLoad,
+    required this.bigClient,
+    required this.hostsRival,
+    this.weeksActive = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'clientName': clientName,
+        'weeklyRevenue': weeklyRevenue,
+        'weeklyCost': weeklyCost,
+        'computeUsed': computeUsed,
+        'teamLoad': teamLoad,
+        'bigClient': bigClient,
+        'hostsRival': hostsRival,
+        'weeksActive': weeksActive,
+      };
+
+  factory ServiceContract.fromJson(Map<String, dynamic> j) =>
+      ServiceContract(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        clientName: j['clientName'] as String,
+        weeklyRevenue: (j['weeklyRevenue'] as num).toInt(),
+        weeklyCost: (j['weeklyCost'] as num).toInt(),
+        computeUsed: (j['computeUsed'] as num).toInt(),
+        teamLoad: j['teamLoad'] as bool,
+        bigClient: j['bigClient'] as bool,
+        hostsRival: j['hostsRival'] as bool,
+        weeksActive: (j['weeksActive'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// تقرير أسبوع واحد: كل رقم فيه محسوب فعلا من حالة ما قبل الأسبوع
 /// وما بعده، لا تقدير ولا نص جاهز.
 class WeekReport {
@@ -33,6 +89,12 @@ class WeekReport {
   final int revenue;
   final int salaries;
   final int inferenceCost;
+  final int servicesRevenue;
+  final int servicesCost;
+  final int creditInterest;
+  final int creditDrawn;
+  final int creditUsedAfter;
+  final List<String> churnedServices;
   final int usersBefore;
   final int usersAfter;
   final int researchBefore;
@@ -53,6 +115,12 @@ class WeekReport {
     required this.revenue,
     required this.salaries,
     required this.inferenceCost,
+    this.servicesRevenue = 0,
+    this.servicesCost = 0,
+    this.creditInterest = 0,
+    this.creditDrawn = 0,
+    this.creditUsedAfter = 0,
+    this.churnedServices = const [],
     required this.usersBefore,
     required this.usersAfter,
     required this.researchBefore,
@@ -67,7 +135,11 @@ class WeekReport {
     required this.lines,
   });
 
-  int get net => revenue - salaries - inferenceCost;
+  int get net =>
+      revenue + servicesRevenue - salaries - inferenceCost - servicesCost - creditInterest;
+
+  /// مفلس فعلا فقط بعد نفاد النقد ونفاد الائتمان معا: إن غطى
+  /// الائتمان العجز عاد النقد إلى صفر ولم يعد مفلسا.
   bool get bankrupt => cashAfter < 0;
 }
 
@@ -87,6 +159,9 @@ class ManagementState {
   int researchProgress;
   int trainingProgress;
   List<Rival> rivals;
+  int creditLimit;
+  int creditUsed;
+  List<ServiceContract> services;
 
   ManagementState({
     this.week = 1,
@@ -102,12 +177,125 @@ class ManagementState {
     this.researchProgress = 0,
     this.trainingProgress = 0,
     List<Rival>? rivals,
-  }) : rivals = rivals ??
+    this.creditLimit = 50000,
+    this.creditUsed = 0,
+    List<ServiceContract>? services,
+  })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1),
               Rival(name: 'نورال للأنظمة', modelLevel: 2),
               Rival(name: 'قمة الحوسبة', modelLevel: 1),
-            ];
+            ],
+        services = services ?? [];
+
+  /// كتالوج الخدمات الأصلي: خمس خدمات حول النماذج، لا نماذج فقط.
+  /// أسماء العملاء خيالية عامة، لا تشير لأي شركة حقيقية.
+  static const List<({String id, String name, int revenue, int cost, int compute, bool team, bool big})>
+      serviceCatalog = [
+    (
+      id: 'hosting',
+      name: 'استضافة نماذج منافسين',
+      revenue: 900,
+      cost: 200,
+      compute: 30,
+      team: false,
+      big: false,
+    ),
+    (
+      id: 'compute_rental',
+      name: 'تأجير حوسبة فائضة',
+      revenue: 700,
+      cost: 100,
+      compute: 40,
+      team: false,
+      big: false,
+    ),
+    (
+      id: 'fine_tuning',
+      name: 'ضبط دقيق للغير',
+      revenue: 1100,
+      cost: 400,
+      compute: 0,
+      team: true,
+      big: false,
+    ),
+    (
+      id: 'data_labeling',
+      name: 'تنظيف ووسم بيانات للغير',
+      revenue: 800,
+      cost: 300,
+      compute: 0,
+      team: true,
+      big: false,
+    ),
+    (
+      id: 'consulting',
+      name: 'استشارات ودمج ذكاء اصطناعي',
+      revenue: 1300,
+      cost: 500,
+      compute: 0,
+      team: true,
+      big: true,
+    ),
+  ];
+
+  static const _serviceClients = [
+    'مكتبة المعرفة',
+    'متجر النور',
+    'عيادة الشفاء',
+    'مصنع الواحة',
+    'بنك الأفق',
+  ];
+
+  /// بدء خدمة: الاستضافة ترتبط بأضعف منافس (عميلها هو المنافس
+  /// نفسه)، وباقي الخدمات ترتبط بعميل خيالي من القائمة.
+  bool startService(String id) {
+    if (services.any((s) => s.id == id)) return false;
+    final def = serviceCatalog.firstWhere((d) => d.id == id);
+    final client = def.id == 'hosting'
+        ? rivals.fold<Rival>(rivals.first,
+            (a, b) => b.modelLevel < a.modelLevel ? b : a).name
+        : _serviceClients[services.length % _serviceClients.length];
+    services.add(ServiceContract(
+      id: def.id,
+      name: def.name,
+      clientName: client,
+      weeklyRevenue: def.revenue,
+      weeklyCost: def.cost,
+      computeUsed: def.compute,
+      teamLoad: def.team,
+      bigClient: def.big,
+      hostsRival: def.id == 'hosting',
+    ));
+    return true;
+  }
+
+  bool stopService(String id) {
+    final before = services.length;
+    services.removeWhere((s) => s.id == id);
+    return services.length < before;
+  }
+
+  int get servicesRevenue =>
+      services.fold(0, (a, s) => a + s.weeklyRevenue);
+  int get servicesCost => services.fold(0, (a, s) => a + s.weeklyCost);
+  int get servicesCompute =>
+      services.fold(0, (a, s) => a + s.computeUsed);
+  int get teamServiceCount => services.where((s) => s.teamLoad).length;
+  int get creditRemaining => creditLimit - creditUsed;
+  int get creditInterest => creditUsed ~/ 50;
+  int get totalWeeklyRevenue => weeklyRevenue + servicesRevenue;
+  int get totalWeeklyCost =>
+      weeklyCost + servicesCost + creditInterest;
+  int get totalWeeklyNet => totalWeeklyRevenue - totalWeeklyCost;
+
+  /// المدى مع الائتمان: النقد + الائتمان المتبقي مقسوما على الحرق.
+  /// أما runwayWeeks فيبقى بالنقد فقط حفاظا على معناه القديم.
+  int get runwayWithCreditWeeks {
+    if (cash + creditRemaining <= 0) return 0;
+    if (totalWeeklyNet >= 0) return 999;
+    return (cash + creditRemaining) ~/ (-totalWeeklyNet);
+  }
 
   /// تكلفة الرواتب الأسبوعية: قاعدة تنمو مع مستوى النموذج.
   int get weeklySalaries => 3000 + modelLevel * 500;
@@ -150,11 +338,23 @@ class ManagementState {
     final modelBefore = modelLevel;
     final reputationBefore = reputation;
 
-    // 1) المالية: إيراد، ثم رواتب وتكلفة استدلال.
+    // 1) المالية: إيراد المنتجات + إيراد الخدمات، ثم رواتب
+    // وتكلفة استدلال وتكلفة خدمات وفائدة الائتمان (2% أسبوعيا
+    // على المستخدم منه). إن نفد النقد يُسحب من الائتمان،
+    // والإفلاس الحقيقي هو نفاد الاثنين معا فقط.
     final revenue = weeklyRevenue;
     final salaries = weeklySalaries;
     final inference = weeklyInferenceCost;
-    cash += revenue - salaries - inference;
+    final svcRevenue = servicesRevenue;
+    final svcCost = servicesCost;
+    final interest = creditInterest;
+    cash += revenue + svcRevenue - salaries - inference - svcCost - interest;
+    var creditDrawn = 0;
+    if (cash < 0 && creditRemaining > 0) {
+      creditDrawn = -cash < creditRemaining ? -cash : creditRemaining;
+      creditUsed += creditDrawn;
+      cash += creditDrawn;
+    }
 
     // 2) نمو المستخدمين: ينمو مع مستوى النموذج والسمعة، ويتباطأ
     // إن تراجعت السمعة كثيرا. لا ينخفض المستخدمون تحت الصفر.
@@ -162,14 +362,24 @@ class ManagementState {
     if (reputation < 30) userDelta -= 6;
     users = _clampInt(users + userDelta, 0, 1000000);
 
-    // 3) تقدم البحث والتدريب: البحث يتقدم كل أسبوع، والتدريب
-    // يتقدم أسرع عندما تكون حوسبة محجوزة لهذا الأسبوع.
-    researchProgress += 6 + r.nextInt(6);
-    trainingProgress += computeReserved >= 20 ? 12 : 4;
+    // 3) تقدم البحث والتدريب، بثمن الخدمات المتشابك: كل خدمة
+    // فرق نشطة تبطئ البحث 3 نقاط، وتأجير الحوسبة يبطئ التدريب
+    // 6 نقاط، وحوسبة الخدمات تأكل من المتاح الأسبوعي.
+    final teamSlow = teamServiceCount * 3;
+    final rentalSlow =
+        services.any((s) => s.id == 'compute_rental') ? 6 : 0;
+    researchProgress +=
+        _clampInt(6 + r.nextInt(6) - teamSlow, 1, 100);
+    final trainingGain = computeReserved >= 20 ? 12 : 4;
+    trainingProgress += _clampInt(trainingGain - rentalSlow, 1, 100);
     // الحوسبة المحجوزة تُستهلك في أسبوعها، وتعود متاحة جزئيا
-    // في الأسبوع التالي (إدارة بسيطة، تُعمّق في جولات الحوسبة).
+    // في الأسبوع التالي، مطروحا منها ما استهلكته الخدمات.
     computeReserved = 0;
-    computeAvailable = _clampInt(computeAvailable + 10, 0, 200);
+    computeAvailable =
+        _clampInt(computeAvailable + 10 - servicesCompute, 0, 200);
+    for (final svc in services) {
+      svc.weeksActive += 1;
+    }
     if (researchProgress >= 100) {
       researchProgress -= 100;
       modelLevel += 1;
@@ -193,23 +403,75 @@ class ManagementState {
       }
     }
 
+    // 5ب) ثمن الخدمات على المنافسين: استضافة منافس تقوّيه
+    // (فرصة تقدم إضافية)، وخدمة الغير قد تسرب خبرة لمنافس
+    // عشوائي (فرصة تقدم أصغر). هذا هو قلب التوازن: دخل
+    // الخدمات يقوّي منافسيك وأنت تحاول ألا تفلس.
+    final hosted = services.where((s) => s.hostsRival).toList();
+    for (final svc in hosted) {
+      final rival = rivals.firstWhere(
+        (rv) => rv.name == svc.clientName,
+        orElse: () => rivals.first,
+      );
+      if (r.nextDouble() < 0.35) {
+        rival.modelLevel += 1;
+        rivalMoves.add(
+            'استضافتك لنموذج ${rival.name} قوّته: ارتفع إلى مستوى ${rival.modelLevel}.');
+      }
+    }
+    if (services.any((s) => s.id == 'fine_tuning') &&
+        r.nextDouble() < 0.15) {
+      final leaked = rivals[r.nextInt(rivals.length)];
+      leaked.modelLevel += 1;
+      rivalMoves.add(
+          'تسرّبت خبرة من ضبطك للغير إلى ${leaked.name} (مستوى ${leaked.modelLevel}).');
+    }
+
+    // 5ج) فقدان عميل خدمة فجأة: العميل الكبير ينسحب بفرصة
+    // أعلى، فيسقط إيراده من الأسبوع التالي ويهدد المدى.
+    final churned = <String>[];
+    final survivors = <ServiceContract>[];
+    for (final svc in services) {
+      final chance = svc.bigClient ? 0.10 : 0.05;
+      if (r.nextDouble() < chance) {
+        churned.add('${svc.name} (${svc.clientName})');
+      } else {
+        survivors.add(svc);
+      }
+    }
+    services
+      ..clear()
+      ..addAll(survivors);
+
     // 6) السمعة: تتقدم إن كنت في الصدارة، وتتراجع إن تأخرت
-    // عن أفضل منافس بمستويين أو أكثر.
+    // عن أفضل منافس بمستويين أو أكثر. الاستشارات النشطة
+    // تضيف نقطة سمعة لأنها تظهر خبرتك للسوق.
     if (modelLevel >= bestRivalLevel) {
       reputation = _clampInt(reputation + 1, 0, 100);
     } else if (bestRivalLevel - modelLevel >= 2) {
       reputation = _clampInt(reputation - 1, 0, 100);
     }
+    if (survivors.any((s) => s.id == 'consulting')) {
+      reputation = _clampInt(reputation + 1, 0, 100);
+    }
 
     week += 1;
     final lines = <String>[
       'إيراد الأسبوع: $revenue، رواتب: $salaries، استدلال: $inference، صافي: ${revenue - salaries - inference}.',
+      if (svcRevenue > 0 || svcCost > 0)
+        'الخدمات: إيراد $svcRevenue، تكلفة $svcCost، صافي ${svcRevenue - svcCost}.',
+      if (interest > 0) 'فائدة الائتمان: $interest (مستخدم: $creditUsed).',
+      if (creditDrawn > 0)
+        'سُحب من الائتمان: $creditDrawn لتغطية العجز (متبق: $creditRemaining).',
       'المستخدمون: $usersBefore → $users.',
       'البحث: $researchBefore → $researchProgress، التدريب: $trainingBefore → $trainingProgress.',
       if (modelLevel != modelBefore)
         'ارتفع مستوى نموذجك من $modelBefore إلى $modelLevel.',
       ...rivalMoves,
-      if (cash < 0) 'نفد النقد: الشركة مفلسة ما لم تُنقذ بقرار مالي.',
+      for (final c in churned)
+        'فقدت عميل خدمة فجأة: $c — إيراده يسقط من الأسبوع التالي.',
+      if (cash < 0)
+        'نفد النقد ونفد الائتمان: الشركة مفلسة. البقاء كان الشرط الأول.',
     ];
     return WeekReport(
       week: week - 1,
@@ -218,6 +480,12 @@ class ManagementState {
       revenue: revenue,
       salaries: salaries,
       inferenceCost: inference,
+      servicesRevenue: svcRevenue,
+      servicesCost: svcCost,
+      creditInterest: interest,
+      creditDrawn: creditDrawn,
+      creditUsedAfter: creditUsed,
+      churnedServices: churned,
       usersBefore: usersBefore,
       usersAfter: users,
       researchBefore: researchBefore,
@@ -247,6 +515,9 @@ class ManagementState {
         'researchProgress': researchProgress,
         'trainingProgress': trainingProgress,
         'rivals': rivals.map((r) => r.toJson()).toList(),
+        'creditLimit': creditLimit,
+        'creditUsed': creditUsed,
+        'services': services.map((s) => s.toJson()).toList(),
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -265,6 +536,11 @@ class ManagementState {
         trainingProgress: (j['trainingProgress'] as num?)?.toInt() ?? 0,
         rivals: (j['rivals'] as List?)
             ?.map((e) => Rival.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        creditLimit: (j['creditLimit'] as num?)?.toInt() ?? 50000,
+        creditUsed: (j['creditUsed'] as num?)?.toInt() ?? 0,
+        services: (j['services'] as List?)
+            ?.map((e) => ServiceContract.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }

@@ -26,6 +26,7 @@ class _ManagementScreenState extends State<ManagementScreen>
     'حوسبة',
     'نماذج',
     'منتجات',
+    'خدمات',
     'منافسون',
     'مالية',
   ];
@@ -134,7 +135,7 @@ class _ManagementScreenState extends State<ManagementScreen>
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Text(
-                          'الشركة مفلسة: نفد النقد. قرارات الإنقاذ المالية تأتي في جولة المالية.',
+                          'الشركة مفلسة: نفد النقد ونفد الائتمان. البقاء كان الشرط الأول.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.red),
                         ),
@@ -218,6 +219,41 @@ class _ManagementScreenState extends State<ManagementScreen>
                       'إطلاق المنتجات والتسويق والتسعير يأتي في جولة المنتجات.'),
                 ]),
                 _panel([
+                  const Text('الخدمات — كل ما حول النماذج',
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                      'الشرط الأول للبقاء: ألا تفلس. الإفلاس هو نفاد النقد مع نفاد الائتمان، والصدارة هدف بعد البقاء. التنويع يقلل خطر الإفلاس لكنه يشتت التركيز عن نموذجك الرئيسي.'),
+                  _row('إيراد الخدمات الأسبوعي', '${s.servicesRevenue}'),
+                  _row('تكلفة الخدمات الأسبوعية', '${s.servicesCost}'),
+                  _row('حوسبة تستهلكها الخدمات', '${s.servicesCompute}'),
+                  _row('الائتمان المستخدم', '${s.creditUsed} / ${s.creditLimit}'),
+                  _row('الائتمان المتبقي', '${s.creditRemaining}'),
+                  _row('المدى مع الائتمان',
+                      s.runwayWithCreditWeeks >= 999
+                          ? 'مستدام'
+                          : '${s.runwayWithCreditWeeks} أسبوع'),
+                  const SizedBox(height: 12),
+                  for (final def in ManagementState.serviceCatalog)
+                    _ServiceRow(
+                      def: def,
+                      active: s.services.any((x) => x.id == def.id),
+                      activeClient: s.services
+                          .where((x) => x.id == def.id)
+                          .map((x) => x.clientName)
+                          .join(),
+                      onToggle: () {
+                        setState(() {
+                          if (s.services.any((x) => x.id == def.id)) {
+                            s.stopService(def.id);
+                          } else {
+                            s.startService(def.id);
+                          }
+                        });
+                      },
+                    ),
+                ]),
+                _panel([
                   const Text('المنافسون (خياليون)',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
@@ -242,6 +278,66 @@ class _ManagementScreenState extends State<ManagementScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// صف خدمة واحدة: إيرادها وتكلفتها وخطرها المتشابك، وزر بدء/إيقاف.
+class _ServiceRow extends StatelessWidget {
+  final ({String id, String name, int revenue, int cost, int compute, bool team, bool big}) def;
+  final bool active;
+  final String activeClient;
+  final VoidCallback onToggle;
+
+  const _ServiceRow({
+    required this.def,
+    required this.active,
+    required this.activeClient,
+    required this.onToggle,
+  });
+
+  String get _risk {
+    switch (def.id) {
+      case 'hosting':
+        return 'الخطر: تقوّي المنافس المستضاف وتأكل حوسبتك.';
+      case 'compute_rental':
+        return 'الخطر: يبطئ تدريبك وبحثك.';
+      case 'fine_tuning':
+        return 'الخطر: يستهلك فرقك وقد يسرب خبرة لمنافس.';
+      case 'data_labeling':
+        return 'الخطر: يستهلك فرقك ويبطئ بحثك.';
+      case 'consulting':
+        return 'الخطر: عميل كبير، فقدانه يضرب الإيراد فجأة.';
+      default:
+        return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(def.name,
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(
+                'إيراد ${def.revenue} / أسبوع — تكلفة ${def.cost} / أسبوع${def.compute > 0 ? ' — حوسبة ${def.compute}' : ''}${def.big ? ' — عميل كبير' : ''}'),
+            Text(_risk),
+            if (active) Text('نشطة — العميل: $activeClient'),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: onToggle,
+              child: Text(active ? 'إيقاف الخدمة' : 'بدء الخدمة'),
+            ),
+          ],
+        ),
       ),
     );
   }
