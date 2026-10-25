@@ -32,6 +32,10 @@ class GameEngine {
   final List<LogEntry> log = [];
   LifeEvent? currentEvent;
   EventChoice? lastChoice;
+
+  /// ملخص حقيقي لما تغيّر بعد آخر قرار، يُبنى في applyChoice
+  /// بمقارنة ما قبل التطبيق بما بعده، وتعرضه بطاقة النتيجة.
+  OutcomeSummary? lastOutcome;
   bool isDead = false;
   String? deathCause;
 
@@ -112,6 +116,7 @@ class GameEngine {
     log.clear();
     currentEvent = null;
     lastChoice = null;
+    lastOutcome = null;
     isDead = false;
     deathCause = null;
     balance = startBalance;
@@ -199,6 +204,18 @@ class GameEngine {
   }
 
   String applyChoice(EventChoice choice) {
+    // لقطة ما قبل القرار: الإحصاءات والرصيد والحوسبة ومستوى النموذج
+    // والسمات والوظيفة والرؤية والأطفال والإنجازات، ليُبنى منها
+    // ملخص التغيّر الفعلي بعد التطبيق، لا الأثر المقصود وحده.
+    final statsBefore = stats.asList();
+    final balanceBefore = balance;
+    final computeBefore = compute;
+    final modelLevelBefore = modelLevel;
+    final traitsBefore = Set<String>.from(traits);
+    final jobBefore = jobTitle;
+    final ambitionBefore = ambition;
+    final childrenBefore = childrenCount;
+    final achievementsBefore = Set<String>.from(achievements);
     final event = currentEvent;
     final wasWorld = event?.isWorld ?? false;
     // القصة المتسلسلة تستمر، وسنة التدبير لا تتكرر مرتين متتاليتين،
@@ -273,6 +290,43 @@ class GameEngine {
     }
     _checkAchievements();
 
+    // ملخص التغيّر الفعلي، بعد كل التحديثات بما فيها الإنجازات:
+    // الإحصاءات بعد التقريب، والرصيد بتفصيله (من القرار + دخل
+    // ومصاريف × السنوات)، والحوسبة بعد خصم مكافأة التدريب، ومستوى
+    // النموذج، والسمات والوظيفة والرؤية الجديدة والإنجازات الجديدة فقط.
+    final yearsValue = years;
+    final yearlyDelta = yearsValue == 0
+        ? 0
+        : (balance - balanceBefore - choice.cash) ~/ yearsValue;
+    lastOutcome = OutcomeSummary(
+      statChanges: [
+        for (var i = 0; i < statsBefore.length; i++)
+          if (stats.asList()[i].$3 != statsBefore[i].$3)
+            StatChange(
+              label: statsBefore[i].$1,
+              icon: statsBefore[i].$2,
+              delta: stats.asList()[i].$3 - statsBefore[i].$3,
+              newValue: stats.asList()[i].$3,
+            ),
+      ],
+      balanceBefore: balanceBefore,
+      balanceAfter: balance,
+      cashDelta: choice.cash,
+      yearlyDelta: yearlyDelta,
+      years: yearsValue,
+      computeBefore: computeBefore,
+      computeAfter: compute,
+      modelLevelBefore: modelLevelBefore,
+      modelLevelAfter: modelLevel,
+      traitsAdded: traits.difference(traitsBefore).toList(),
+      traitsRemoved: traitsBefore.difference(traits).toList(),
+      jobBefore: jobBefore,
+      jobAfter: jobTitle,
+      ambitionAfter: ambitionBefore == null ? ambition : null,
+      childrenDelta: childrenCount - childrenBefore,
+      newAchievements: achievements.difference(achievementsBefore).toList(),
+    );
+
     if (choice.deathCause != null) {
       isDead = true;
       deathCause = choice.deathCause;
@@ -338,6 +392,7 @@ class GameEngine {
 
   void nextEvent() {
     lastChoice = null;
+    lastOutcome = null;
     if (!isDead) currentEvent = pickNextEvent();
   }
 

@@ -326,25 +326,23 @@ class _GameScreenState extends State<GameScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Chip(label: Text('عمر ${_e.age}')),
-                const SizedBox(width: 8),
                 Chip(label: Text(stageLabel(_e.age))),
                 if (event.isWorld) ...[
-                  const SizedBox(width: 8),
                   const Chip(
                       label: Text('🌍 حدث عالمي'),
                       backgroundColor: Color(0xFFFFE0B2)),
                 ],
                 if (event.isArcChapter && event.arcName != null) ...[
-                  const SizedBox(width: 8),
                   Chip(
                       label: Text('📖 قصة: ${event.arcName}'),
                       backgroundColor: Colors.purple.shade100),
                 ],
                 if (event.id.startsWith('yearly_')) ...[
-                  const SizedBox(width: 8),
                   const Chip(
                       label: Text('🗓️ سنة تدبير'),
                       backgroundColor: Color(0xFFC8E6C9)),
@@ -395,21 +393,77 @@ class _GameScreenState extends State<GameScreen> {
             const SizedBox(height: 10),
             Text(choice.outcome,
                 style: const TextStyle(fontSize: 17, height: 1.7)),
-            if (!choice.effect.isEmpty) ...[
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.statChanges.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('التأثير: ${choice.effect.describe()}',
-                  style: TextStyle(color: Colors.grey.shade700)),
+              const Text('ما تغيّر في إحصاءاتك:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              for (final c in _e.lastOutcome!.statChanges)
+                Text(
+                    '${c.icon} ${c.label}: ${c.delta > 0 ? '+' : ''}${c.delta} → ${c.newValue}',
+                    style: TextStyle(color: Colors.grey.shade700)),
             ],
-            if (choice.cash != 0) ...[
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.balanceAfter !=
+                    _e.lastOutcome!.balanceBefore) ...[
               const SizedBox(height: 6),
               Text(
-                  'الرصيد ${choice.cash > 0 ? '+' : ''}${formatMoney(choice.cash)} • رصيدك الآن: ${formatMoney(_e.balance)}',
+                  'الرصيد: ${_e.lastOutcome!.cashDelta != 0 ? '${_e.lastOutcome!.cashDelta > 0 ? '+' : ''}${formatMoney(_e.lastOutcome!.cashDelta)} من القرار ' : ''}${_e.lastOutcome!.yearlyDelta != 0 ? '${_e.lastOutcome!.yearlyDelta > 0 ? '+' : ''}${formatMoney(_e.lastOutcome!.yearlyDelta)} دخل ومصاريف × ${_e.lastOutcome!.years} ${_e.lastOutcome!.years == 1 ? 'سنة' : 'سنوات'} ' : ''}= ${formatMoney(_e.lastOutcome!.balanceAfter)} الآن',
                   style: TextStyle(color: Colors.grey.shade700)),
             ],
-            if (choice.compute != 0 || choice.trainLevels > 0) ...[
+            if (_e.lastOutcome != null &&
+                (_e.lastOutcome!.computeAfter !=
+                        _e.lastOutcome!.computeBefore ||
+                    _e.lastOutcome!.modelLevelAfter !=
+                        _e.lastOutcome!.modelLevelBefore)) ...[
               const SizedBox(height: 6),
               Text(
-                  '🤖 مستوى النموذج الآن: ${_e.modelLevel}/5 • ⚡ الحوسبة: ${_e.compute}',
+                  '🤖 مستوى النموذج الآن: ${_e.lastOutcome!.modelLevelAfter}/5${_e.lastOutcome!.modelLevelAfter != _e.lastOutcome!.modelLevelBefore ? ' (${_e.lastOutcome!.modelLevelAfter - _e.lastOutcome!.modelLevelBefore > 0 ? '+' : ''}${_e.lastOutcome!.modelLevelAfter - _e.lastOutcome!.modelLevelBefore})' : ''} • ⚡ الحوسبة: ${_e.lastOutcome!.computeAfter}${_e.lastOutcome!.computeAfter != _e.lastOutcome!.computeBefore ? ' (${_e.lastOutcome!.computeAfter - _e.lastOutcome!.computeBefore > 0 ? '+' : ''}${_e.lastOutcome!.computeAfter - _e.lastOutcome!.computeBefore})' : ''}',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.traitsAdded.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                  'سمات جديدة: ${_e.lastOutcome!.traitsAdded.map((t) => traitLabels[t] ?? t).join('، ')}',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.traitsRemoved.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                  'سمات فُقدت: ${_e.lastOutcome!.traitsRemoved.map((t) => traitLabels[t] ?? t).join('، ')}',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.jobBefore != _e.lastOutcome!.jobAfter) ...[
+              const SizedBox(height: 6),
+              Text(
+                  _e.lastOutcome!.jobAfter != null
+                      ? 'وظيفتك الآن: ${_e.lastOutcome!.jobAfter}'
+                      : 'تركت وظيفتك.',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.ambitionAfter != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                  '🎯 رؤيتك الآن: ${ambitionLabels[_e.lastOutcome!.ambitionAfter] ?? _e.lastOutcome!.ambitionAfter}',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.childrenDelta != 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                  '👶 أطفالك الآن: ${_e.childrenCount}',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (_e.lastOutcome != null &&
+                _e.lastOutcome!.newAchievements.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                  '🏆 إنجاز جديد: ${_e.lastOutcome!.newAchievements.map((a) => achievementLabels[a] ?? a).join('، ')}',
                   style: TextStyle(color: Colors.grey.shade700)),
             ],
             const SizedBox(height: 16),
