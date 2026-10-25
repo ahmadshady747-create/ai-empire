@@ -45,6 +45,7 @@ LifeEvent yearlyEventForAge(
       const Effect(reputation: 4, research: 6, money: 2),
       cash: 5000,
       jump: 1,
+      focus: 'research',
     ));
   }
   if (arcEchoTitle != null) {
@@ -54,6 +55,7 @@ LifeEvent yearlyEventForAge(
       const Effect(social: 6, reputation: 4, tech: 4),
       cash: 3000,
       jump: 1,
+      focus: 'social',
     ));
   }
   return LifeEvent(
@@ -83,16 +85,16 @@ LifeEvent _yearlyEventForAge(
         stories[frame],
         [
           c('أركز على البحث والتطوير', 'نماذجك تتحسن بصمت.',
-              const Effect(research: 8, tech: 8, morale: -2), jump: 1),
+              const Effect(research: 8, tech: 8, morale: -2), jump: 1, focus: 'research'),
           c('أركز على المبيعات والعملاء', 'إيرادك يكبر، وسمعتك تنتشر.',
-              const Effect(money: 8, social: 6), cash: 5000, jump: 1),
+              const Effect(money: 8, social: 6), cash: 5000, jump: 1, focus: 'sales'),
           c('أبني فريقي', 'فريق أقوى، وقدرة أكبر.',
-              const Effect(skill: 8, social: 6), jump: 1),
+              const Effect(skill: 8, social: 6), jump: 1, focus: 'team'),
           c('أستريح وأعيد التفكير', 'رؤية أوضح، وتقدم أبطأ.',
-              const Effect(morale: 10, research: -2), jump: 1),
+              const Effect(morale: 10, research: -2), jump: 1, focus: 'rest'),
           c('أجمع حوسبة رخيصة من تجارب صغيرة', 'حوسبة مخزنة لجولة '
               'التدريب القادمة، وتعلّم تراكمي.',
-              const Effect(research: 4), compute: 10, jump: 1),
+              const Effect(research: 4), compute: 10, jump: 1, focus: 'compute'),
         ]);
   }
   if (age < 50) {
@@ -105,16 +107,16 @@ LifeEvent _yearlyEventForAge(
         stories[frame],
         [
           c('أتوسع إلى أسواق جديدة', 'انتشار أوسع، ومخاطر أكبر.',
-              const Effect(money: 10, social: 8, morale: -2), cash: 10000, jump: 1),
+              const Effect(money: 10, social: 8, morale: -2), cash: 10000, jump: 1, focus: 'sales'),
           c('أعمّق منتجي الحالي', 'جودة أعلى، وولاء عملاء أكبر.',
-              const Effect(tech: 10, reputation: 6), jump: 1),
+              const Effect(tech: 10, reputation: 6), jump: 1, focus: 'product'),
           c('أستثمر في البحث الطويل', 'رهان على المستقبل، دون عائد فوري.',
-              const Effect(research: 10, tech: 6, money: -2), jump: 1),
+              const Effect(research: 10, tech: 6, money: -2), jump: 1, focus: 'research'),
           c('أركز على الربحية', 'مال أكثر، ونمو أبطأ.',
-              const Effect(money: 12, morale: -2), cash: 15000, jump: 1),
+              const Effect(money: 12, morale: -2), cash: 15000, jump: 1, focus: 'profit'),
           c('أحجز حوسبة للتدريب القادم', 'تدفع الآن لتملك وقت حوسبة '
               'حين تحتاجه، بدل أن تشتريه غاليا وقت الذروة.',
-              const Effect(tech: 4), cash: -10000, compute: 15, jump: 1),
+              const Effect(tech: 4), cash: -10000, compute: 15, jump: 1, focus: 'compute'),
         ]);
   }
   const stories = [
@@ -132,11 +134,11 @@ LifeEvent _yearlyEventForAge(
       stories[frame],
       [
         c('أرشد مؤسسين شبابا', 'أثرك يتوسع، وسمعتك ترتفع.',
-            const Effect(reputation: 10, social: 8), jump: 1),
+            const Effect(reputation: 10, social: 8), jump: 1, focus: 'team'),
         c('أستثمر في أبحاث جريئة', 'رهان أخير على اختراق كبير.',
-            const Effect(research: 10, tech: 6, money: -4), jump: 1),
+            const Effect(research: 10, tech: 6, money: -4), jump: 1, focus: 'research'),
         c('أستقر وأحصد النتائج', 'سنة هادئة مربحة.',
-            const Effect(money: 10, morale: 6), cash: 20000, jump: 1),
+            const Effect(money: 10, morale: 6), cash: 20000, jump: 1, focus: 'profit'),
         c(
           'أوظّف إرثي: أفتح نماذجي القديمة للجيل الجديد وأبيع خبرتي',
           'نماذجك من المستوى $modelLevel وإنجازاتك الـ $achievementCount صارت مرجعا: '
@@ -144,6 +146,7 @@ LifeEvent _yearlyEventForAge(
           Effect(reputation: legacyRep, social: 4, money: legacyMoney),
           cash: legacyCash,
           jump: 1,
+          focus: 'legacy',
         ),
       ]);
 }

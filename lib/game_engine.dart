@@ -75,6 +75,12 @@ class GameEngine {
   String? lastArcName;
   bool arcEchoPending = false;
 
+  /// زخم سنة التدبير (البند 6، الجولة الرابعة): اتجاه آخر سنة
+  /// تدبير طُبّقت، يمنح الحدث المصيري التالي مكافأة صغيرة
+  /// مرئية ثم يُستهلك، فتتداخل سنوات التدبير مع الأحداث
+  /// المصيرية في الاتجاه المعاكس لصدى العالم والقوس.
+  String? yearlyMomentum;
+
   Country get country =>
       countries.firstWhere((c) => c.name == person.country, orElse: () => countries.first);
 
@@ -153,6 +159,7 @@ class GameEngine {
     worldEchoPending = false;
     lastArcName = null;
     arcEchoPending = false;
+    yearlyMomentum = null;
     // المسيرة تنتهي بالتقاعد بين 60 و75، وتقنية البداية تؤثر قليلا.
     lifespan = (62 + (stats.tech - 50) ~/ 5 + _r.nextInt(16))
         .clamp(58, 75);
@@ -251,6 +258,9 @@ class GameEngine {
     final event = currentEvent;
     final wasWorld = event?.isWorld ?? false;
     final wasArcChapter = event?.isArcChapter ?? false;
+    final isYearly = event != null && event.id.startsWith('yearly_');
+    // سطر الزخم الذي سيُعرض في بطاقة النتيجة، إن استُهلك زخم هنا.
+    String? momentumNote;
     // القصة المتسلسلة تستمر، وسنة التدبير لا تتكرر مرتين متتاليتين،
     // وكل حدث مصيري آخر يتبعه سنة تدبير.
     pendingNextId = choice.nextId;
@@ -276,6 +286,11 @@ class GameEngine {
       lastArcName = event!.arcName;
       arcEchoPending = true;
     }
+    // زخم سنة التدبير: قرار سنة التدبير يحدّد اتجاه الزخم
+    // للحدث المصيري التالي، ولا يستهلكه هو نفسه.
+    if (isYearly && choice.yearlyFocus != null) {
+      yearlyMomentum = choice.yearlyFocus;
+    }
     if (event != null) {
       log.add(LogEntry(
         age: age,
@@ -297,6 +312,16 @@ class GameEngine {
       modelLevel = (modelLevel + gain).clamp(0, 5);
     }
     stats.apply(choice.effect);
+    // استهلاك الزخم: الحدث المصيري التالي بعد سنة تدبير ينال
+    // مكافأة صغيرة من اتجاهها، تُرى في بطاقة النتيجة لأنها
+    // تُطبّق قبل بناء ملخص التغيّر، ثم يُستهلك الزخم.
+    if (!isYearly && yearlyMomentum != null) {
+      final bonus = _momentumBonus(yearlyMomentum!);
+      stats.apply(bonus.$1);
+      compute = (compute + bonus.$2).clamp(0, 1000000);
+      momentumNote = bonus.$3;
+      yearlyMomentum = null;
+    }
     traits.addAll(choice.addTraits);
     traits.removeAll(choice.removeTraits);
     if (choice.addTraits.contains('parent')) {
@@ -373,6 +398,7 @@ class GameEngine {
       ambitionAfter: ambitionBefore == null ? ambition : null,
       childrenDelta: childrenCount - childrenBefore,
       newAchievements: achievements.difference(achievementsBefore).toList(),
+      momentumNote: momentumNote,
     );
 
     if (choice.deathCause != null) {
@@ -390,6 +416,68 @@ class GameEngine {
       return choice.outcome;
     }
     return choice.outcome;
+  }
+
+  /// مكافأة الزخم لكل اتجاه: (أثر إحصائي، حوسبة إضافية، سطر العرض).
+  (Effect, int, String) _momentumBonus(String focus) {
+    switch (focus) {
+      case 'research':
+        return (
+          const Effect(research: 3, tech: 2),
+          0,
+          '⚡ زخم سنة التدبير: تركيزك على البحث منحك +3 بحث و+2 تقنية في هذا القرار'
+        );
+      case 'sales':
+        return (
+          const Effect(money: 3, social: 2),
+          0,
+          '⚡ زخم سنة التدبير: تركيزك على المبيعات منحك +3 مال و+2 علاقات في هذا القرار'
+        );
+      case 'team':
+        return (
+          const Effect(skill: 3, social: 2),
+          0,
+          '⚡ زخم سنة التدبير: بناؤك للفريق منحك +3 مهارة و+2 علاقات في هذا القرار'
+        );
+      case 'rest':
+        return (
+          const Effect(morale: 4),
+          0,
+          '⚡ زخم سنة التدبير: راحتك وإعادة تفكيرك منحتك +4 معنويات في هذا القرار'
+        );
+      case 'compute':
+        return (
+          const Effect(),
+          10,
+          '⚡ زخم سنة التدبير: جمعك للحوسبة منحك +10 حوسبة في هذا القرار'
+        );
+      case 'product':
+        return (
+          const Effect(tech: 3, reputation: 2),
+          0,
+          '⚡ زخم سنة التدبير: تعميقك للمنتج منحك +3 تقنية و+2 سمعة في هذا القرار'
+        );
+      case 'profit':
+        return (
+          const Effect(money: 3, morale: 2),
+          0,
+          '⚡ زخم سنة التدبير: تركيزك على الربحية منحك +3 مال و+2 معنويات في هذا القرار'
+        );
+      case 'social':
+        return (
+          const Effect(social: 3, reputation: 2),
+          0,
+          '⚡ زخم سنة التدبير: متابعتك للقصة منحتك +3 علاقات و+2 سمعة في هذا القرار'
+        );
+      case 'legacy':
+        return (
+          const Effect(reputation: 3, money: 2),
+          0,
+          '⚡ زخم سنة التدبير: توظيفك لإرثك منحك +3 سمعة و+2 مال في هذا القرار'
+        );
+      default:
+        return (const Effect(), 0, '');
+    }
   }
 
   void _checkAchievements() {
@@ -489,6 +577,7 @@ class GameEngine {
         'worldEchoPending': worldEchoPending,
         'lastArcName': lastArcName,
         'arcEchoPending': arcEchoPending,
+        'yearlyMomentum': yearlyMomentum,
         'currentEventId': currentEvent?.id,
       };
 
@@ -521,6 +610,7 @@ class GameEngine {
     engine.worldEchoPending = j['worldEchoPending'] as bool? ?? false;
     engine.lastArcName = j['lastArcName'] as String?;
     engine.arcEchoPending = j['arcEchoPending'] as bool? ?? false;
+    engine.yearlyMomentum = j['yearlyMomentum'] as String?;
     final eventId = j['currentEventId'] as String?;
     if (eventId != null && !engine.isDead) {
       // سنة التدبير الحالية أُحصيت عند اختيارها، فإطارها هو

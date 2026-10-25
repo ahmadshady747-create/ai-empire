@@ -162,6 +162,10 @@ class OutcomeSummary {
   final int childrenDelta;
   final List<String> newAchievements;
 
+  /// سطر زخم سنة التدبير، إن استُهلك زخم في هذا القرار
+  /// (البند 6، الجولة الرابعة)، وإلا null.
+  final String? momentumNote;
+
   const OutcomeSummary({
     required this.statChanges,
     required this.balanceBefore,
@@ -180,6 +184,7 @@ class OutcomeSummary {
     required this.ambitionAfter,
     required this.childrenDelta,
     required this.newAchievements,
+    this.momentumNote,
   });
 }
 
@@ -215,6 +220,12 @@ class EventChoice {
   /// بهذا لا ينتهي القرار عند نتيجته، بل يحدد ما سيحدث بعد سنة.
   final String? nextId;
 
+  /// اتجاه سنة التدبير (البند 6، الجولة الرابعة): خيارات سنوات
+  /// التدبير وحدها تحمل اتجاها (بحث، مبيعات، فريق...)، فيمنح
+  /// الحدث المصيري التالي مكافأة زخم صغيرة مرئية ثم يُستهلك.
+  /// خيارات الأحداث المصيرية لا تحمل اتجاها (null).
+  final String? yearlyFocus;
+
   const EventChoice({
     required this.text,
     required this.outcome,
@@ -230,6 +241,7 @@ class EventChoice {
     this.compute = 0,
     this.trainLevels = 0,
     this.nextId,
+    this.yearlyFocus,
   });
 }
 

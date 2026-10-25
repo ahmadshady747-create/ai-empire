@@ -405,6 +405,12 @@ class _GameScreenState extends State<GameScreen> {
                     style: TextStyle(color: Colors.grey.shade700)),
             ],
             if (_e.lastOutcome != null &&
+                _e.lastOutcome!.momentumNote != null) ...[
+              const SizedBox(height: 6),
+              Text(_e.lastOutcome!.momentumNote!,
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (_e.lastOutcome != null &&
                 _e.lastOutcome!.balanceAfter !=
                     _e.lastOutcome!.balanceBefore) ...[
               const SizedBox(height: 6),

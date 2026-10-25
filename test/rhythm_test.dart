@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ai_empire/data/arcs.dart';
+import 'package:ai_empire/data/events.dart';
 import 'package:ai_empire/data/world_events.dart';
 import 'package:ai_empire/data/yearly_events.dart';
 import 'package:ai_empire/game_engine.dart';
@@ -171,5 +172,50 @@ void main() {
     final restored = GameEngine.fromJson(engine.toJson());
     expect(restored.yearlyCount, 2);
     expect(restored.currentEvent!.story, engine.currentEvent!.story);
+  });
+
+  test('زخم سنة التدبير: قرار السنة يمنح الحدث المصيري التالي مكافأة مرئية ثم يُستهلك', () {
+    final engine = GameEngine()..newLife();
+    // سنة تدبير بتركيز بحث (الخيار الأول في المرحلة المبكرة).
+    engine.currentEvent = yearlyEventForAge(25);
+    expect(engine.currentEvent!.choices.first.yearlyFocus, 'research');
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    expect(engine.yearlyMomentum, 'research');
+    // الحدث المصيري التالي: خياره الأول لا يمنح بحثا بذاته،
+    // فأي زيادة بحث هي مكافأة الزخم وحدها.
+    engine.currentEvent = allEvents.first;
+    final researchBefore = engine.stats.research;
+    final techBefore = engine.stats.tech;
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    expect(engine.stats.research - researchBefore, 3,
+        reason: 'مكافأة زخم البحث يجب أن تضيف +3 بحث إلى الحدث المصيري التالي');
+    expect(engine.stats.tech - techBefore, 2);
+    expect(engine.lastOutcome!.momentumNote, contains('بحث'));
+    expect(engine.yearlyMomentum, isNull,
+        reason: 'الزخم يُستهلك في الحدث المصيري التالي ولا يتكرر');
+  });
+
+  test('زخم سنة التدبير: سنة تدبير ثانية تستبدل زخم الأولى لا تتراكم فوقه', () {
+    final engine = GameEngine()..newLife();
+    engine.currentEvent = yearlyEventForAge(25);
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    expect(engine.yearlyMomentum, 'research');
+    engine.currentEvent = yearlyEventForAge(25);
+    engine.applyChoice(engine.currentEvent!.choices[1]);
+    expect(engine.yearlyMomentum, 'sales',
+        reason: 'آخر سنة تدبير هي التي تحدد زخم الحدث التالي');
+  });
+
+  test('زخم سنة التدبير يبقى عند الاستئناف قبل الحدث المصيري التالي', () {
+    final engine = GameEngine()..newLife();
+    engine.currentEvent = yearlyEventForAge(25);
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    final restored = GameEngine.fromJson(engine.toJson());
+    expect(restored.yearlyMomentum, 'research');
+    restored.currentEvent = allEvents.first;
+    final researchBefore = restored.stats.research;
+    restored.applyChoice(restored.currentEvent!.choices.first);
+    expect(restored.stats.research - researchBefore, 3);
+    expect(restored.yearlyMomentum, isNull);
   });
 }

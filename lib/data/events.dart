@@ -15,6 +15,7 @@ EventChoice c(
   int compute = 0,
   int train = 0,
   String? nextId,
+  String? focus,
 }) =>
     EventChoice(
       text: text,
@@ -31,6 +32,7 @@ EventChoice c(
       compute: compute,
       trainLevels: train,
       nextId: nextId,
+      yearlyFocus: focus,
     );
 
 LifeEvent e(
