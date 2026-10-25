@@ -63,9 +63,10 @@ const arcChapters = <LifeEvent>[
       EventChoice(
         text: 'أقاضي المنافس',
         outcome:
-            'ربحتَ القضية بعد معركة طويلة، لكن صورتك تغيرت: صار البعض '
+            'ربحتَ القضية وتعويضا ماليا بعد معركة طويلة، لكن صورتك تغيرت: صار البعض '
             'يراك مدافعا عن الملكية لا عن الانفتاح.',
-        effect: Effect(reputation: 6, money: -8, social: -6),
+        effect: Effect(reputation: 6, money: 6, social: -6),
+        cash: 40000,
         ageJump: 2,
       ),
       EventChoice(
