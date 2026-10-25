@@ -4,6 +4,7 @@ import 'data/arcs.dart';
 import 'data/countries.dart';
 import 'data/deep_events.dart';
 import 'data/events.dart';
+import 'data/hook.dart';
 import 'data/training_events.dart';
 import 'data/world_events.dart';
 import 'data/yearly_events.dart';
@@ -127,6 +128,9 @@ class GameEngine {
     // المسيرة تنتهي بالتقاعد بين 60 و75، وتقنية البداية تؤثر قليلا.
     lifespan = (62 + (stats.tech - 50) ~/ 5 + _r.nextInt(16))
         .clamp(58, 75);
+    // الافتتاح يُفرض أولا، لا يُترك للعشوائية: أول حدث في كل
+    // مسيرة هو أزمة ليلة العرض، وفصلها الثاني يتبعها فورا عبر nextId.
+    pendingNextId = 'hook_ai_open';
     currentEvent = pickNextEvent();
   }
 
@@ -136,10 +140,11 @@ class GameEngine {
         ...deepEvents,
         ...arcStarters,
         ...trainingEvents,
+        ...hookEvents,
       ];
 
   LifeEvent _findEvent(String id) {
-    for (final ev in [..._personalPool, ...worldEvents, ...arcChapters]) {
+    for (final ev in [..._personalPool, ...worldEvents, ...arcChapters, ...hookChapters]) {
       if (ev.id == id) return ev;
     }
     return genericEvent(age);

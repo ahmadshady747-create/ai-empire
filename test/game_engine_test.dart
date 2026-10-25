@@ -57,20 +57,56 @@ void main() {
     expect(restored.lifeScore, greaterThan(0));
   });
 
+  test('الهوك يفرض ليلة العرض ثم صباح العرض بثلاثة خيارات لكل فصل', () {
+    final engine = GameEngine()..newLife();
+    expect(engine.currentEvent!.id, 'hook_ai_open');
+    expect(engine.currentEvent!.choices.length, 3);
+    // كل خيار في الفصل الأول له ثمن مرئي: أثر أو رصيد أو حوسبة أو سمة.
+    for (final choice in engine.currentEvent!.choices) {
+      expect(
+        !choice.effect.isEmpty ||
+            choice.cash != 0 ||
+            choice.compute != 0 ||
+            choice.addTraits.isNotEmpty,
+        isTrue,
+      );
+      expect(choice.nextId, 'hook_ai_2');
+    }
+    // العبور بالخيار الأول: الفصل الثاني يفرض نفسه فورا.
+    final first = engine.currentEvent!.choices.first;
+    engine.applyChoice(first);
+    engine.nextEvent();
+    expect(engine.currentEvent!.id, 'hook_ai_2');
+    expect(engine.currentEvent!.choices.length, 3);
+    // كل نتيجة في الفصل الثاني تنتهي بالخيط المفتوح نفسه: البطاقة بلا اسم.
+    for (final choice in engine.currentEvent!.choices) {
+      expect(choice.outcome, contains('بطاقة بلا اسم'));
+      expect(choice.nextId, isNull);
+    }
+    // بعد الفصل الثاني تأتي سنة تدبير، لأن خياره بلا فصل تال.
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    engine.nextEvent();
+    expect(engine.currentEvent!.id.startsWith('yearly_'), isTrue);
+  });
+
   test('القصة المتسلسلة تفرض فصلها التالي والحدث المصيري يتبعه سنة تدبير', () {
     final engine = GameEngine()..newLife();
     engine.pendingNextId = 'series_b';
     final arc = engine.pickNextEvent();
     expect(arc.id, 'series_b');
 
+    // العبور من الافتتاح أولا: الهوك صار أول حدث، فلا يفترض
+    // أن أول حدث عشوائي. بعد فصلَي الافتتاح تأتي سنة تدبير.
     final engine2 = GameEngine()..newLife();
-    engine2.age = 30;
-    final first = engine2.currentEvent!;
-    final choice = first.choices.firstWhere(
+    expect(engine2.currentEvent!.id, 'hook_ai_open');
+    engine2.applyChoice(engine2.currentEvent!.choices.first);
+    engine2.nextEvent();
+    expect(engine2.currentEvent!.id, 'hook_ai_2');
+    final hookChoice = engine2.currentEvent!.choices.firstWhere(
       (c) => c.deathCause == null && c.nextId == null,
-      orElse: () => first.choices.first,
+      orElse: () => engine2.currentEvent!.choices.first,
     );
-    engine2.applyChoice(choice);
+    engine2.applyChoice(hookChoice);
     if (!engine2.isDead) {
       engine2.nextEvent();
       expect(engine2.currentEvent!.id.startsWith('yearly_'), isTrue);
