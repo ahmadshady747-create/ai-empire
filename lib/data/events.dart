@@ -12,6 +12,8 @@ EventChoice c(
   String? job,
   int jobSalary = 0,
   int cash = 0,
+  int compute = 0,
+  int train = 0,
   String? nextId,
 }) =>
     EventChoice(
@@ -26,6 +28,8 @@ EventChoice c(
       job: job,
       jobSalary: jobSalary,
       cash: cash,
+      compute: compute,
+      trainLevels: train,
       nextId: nextId,
     );
 

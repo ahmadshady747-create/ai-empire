@@ -4,6 +4,7 @@ import 'data/arcs.dart';
 import 'data/countries.dart';
 import 'data/deep_events.dart';
 import 'data/events.dart';
+import 'data/training_events.dart';
 import 'data/world_events.dart';
 import 'data/yearly_events.dart';
 import 'models.dart';
@@ -36,6 +37,10 @@ class GameEngine {
   int balance = 0;
   String? jobTitle;
   int jobSalary = 0;
+
+  /// نظام تدريب النماذج: مخزون حوسبة ومستوى نموذج (0-5).
+  int compute = 0;
+  int modelLevel = 0;
   int childrenCount = 0;
   String? ambition;
   final Set<String> achievements = {};
@@ -111,6 +116,8 @@ class GameEngine {
     balance = startBalance;
     jobTitle = null;
     jobSalary = 0;
+    compute = 0;
+    modelLevel = 0;
     childrenCount = 0;
     ambition = null;
     achievements.clear();
@@ -128,6 +135,7 @@ class GameEngine {
         ...laterEvents,
         ...deepEvents,
         ...arcStarters,
+        ...trainingEvents,
       ];
 
   LifeEvent _findEvent(String id) {
@@ -207,6 +215,17 @@ class GameEngine {
       ));
     }
     final hadParent = traits.contains('parent');
+    // نظام التدريب: الحوسبة تُجمع، وجولة التدريب ترفع مستوى النموذج.
+    // إن كان المخزون 20 أو أكثر، يُستهلك 20 لمنح مستوى إضافي واحد.
+    compute = (compute + choice.compute).clamp(0, 1000000);
+    if (choice.trainLevels > 0) {
+      var gain = choice.trainLevels;
+      if (compute >= 20) {
+        compute -= 20;
+        gain += 1;
+      }
+      modelLevel = (modelLevel + gain).clamp(0, 5);
+    }
     stats.apply(choice.effect);
     traits.addAll(choice.addTraits);
     traits.removeAll(choice.removeTraits);
@@ -277,6 +296,7 @@ class GameEngine {
     if (stats.money >= 90) achievements.add('rich');
     if (stats.tech >= 90) achievements.add('techy');
     if (stats.reputation >= 90) achievements.add('famous');
+    if (modelLevel >= 3) achievements.add('frontier');
   }
 
   bool get ambitionAchieved {
@@ -306,6 +326,7 @@ class GameEngine {
     return age +
         avg +
         achievements.length * 8 +
+        modelLevel * 4 +
         (ambitionAchieved ? 30 : 0) +
         (balance >= 100000 ? 10 : 0);
   }
@@ -324,6 +345,7 @@ class GameEngine {
       b.writeln('رؤيته: ${ambitionLabels[ambition]} — ${ambitionAchieved ? 'تحققت ✓' : 'لم تتحقق'}');
     }
     b.writeln('نقاط المسيرة: $lifeScore. الإنجازات: ${achievements.length}.');
+    b.writeln('أعلى مستوى نموذج بلغته: $modelLevel/5.');
     b.writeln();
     for (final entry in log) {
       b.writeln('• عمر ${entry.age}: ${entry.title}');
@@ -344,6 +366,8 @@ class GameEngine {
         'isDead': isDead,
         'deathCause': deathCause,
         'balance': balance,
+        'compute': compute,
+        'modelLevel': modelLevel,
         'jobTitle': jobTitle,
         'jobSalary': jobSalary,
         'childrenCount': childrenCount,
@@ -368,6 +392,8 @@ class GameEngine {
     engine.isDead = j['isDead'] as bool;
     engine.deathCause = j['deathCause'] as String?;
     engine.balance = (j['balance'] as num).toInt();
+    engine.compute = (j['compute'] as num?)?.toInt() ?? 0;
+    engine.modelLevel = (j['modelLevel'] as num?)?.toInt() ?? 0;
     engine.jobTitle = j['jobTitle'] as String?;
     engine.jobSalary = (j['jobSalary'] as num).toInt();
     engine.childrenCount = (j['childrenCount'] as num).toInt();

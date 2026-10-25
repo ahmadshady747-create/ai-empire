@@ -16,6 +16,9 @@ LifeEvent yearlyEventForAge(int age) {
               const Effect(skill: 8, social: 6), jump: 1),
           c('أستريح وأعيد التفكير', 'رؤية أوضح، وتقدم أبطأ.',
               const Effect(morale: 10, research: -2), jump: 1),
+          c('أجمع حوسبة رخيصة من تجارب صغيرة', 'حوسبة مخزنة لجولة '
+              'التدريب القادمة، وتعلّم تراكمي.',
+              const Effect(research: 4), compute: 10, jump: 1),
         ]);
   }
   if (age < 50) {
@@ -30,6 +33,9 @@ LifeEvent yearlyEventForAge(int age) {
               const Effect(research: 10, tech: 6, money: -2), jump: 1),
           c('أركز على الربحية', 'مال أكثر، ونمو أبطأ.',
               const Effect(money: 12, morale: -2), cash: 15000, jump: 1),
+          c('أحجز حوسبة للتدريب القادم', 'تدفع الآن لتملك وقت حوسبة '
+              'حين تحتاجه، بدل أن تشتريه غاليا وقت الذروة.',
+              const Effect(tech: 4), cash: -10000, compute: 15, jump: 1),
         ]);
   }
   return e('yearly_late', age, age, '🗓️ سنة من رحلتك: كيف تديرها؟',

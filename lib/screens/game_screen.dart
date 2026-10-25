@@ -203,6 +203,8 @@ class _GameScreenState extends State<GameScreen> {
                       'شركة ${person.company} • سنة ${_e.person.birthYear + _e.age} • ${person.familyClass}'),
                   Text(
                       '💰 الرصيد: ${formatMoney(_e.balance)}${_e.jobTitle != null ? ' • 💼 ${_e.jobTitle}' : ''}${_e.childrenCount > 0 ? ' • 👶 ${_e.childrenCount} ${_e.childrenCount == 1 ? 'طفل' : 'أطفال'}' : ''}'),
+                  Text(
+                      '🤖 نموذج مستوى ${_e.modelLevel}/5 • ⚡ حوسبة ${_e.compute}'),
                   if (_e.ambition != null)
                     Text('🎯 ${ambitionLabels[_e.ambition]}'),
                 ],
@@ -373,6 +375,12 @@ class _GameScreenState extends State<GameScreen> {
               const SizedBox(height: 6),
               Text(
                   'الرصيد ${choice.cash > 0 ? '+' : ''}${formatMoney(choice.cash)} • رصيدك الآن: ${formatMoney(_e.balance)}',
+                  style: TextStyle(color: Colors.grey.shade700)),
+            ],
+            if (choice.compute != 0 || choice.trainLevels > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                  '🤖 مستوى النموذج الآن: ${_e.modelLevel}/5 • ⚡ الحوسبة: ${_e.compute}',
                   style: TextStyle(color: Colors.grey.shade700)),
             ],
             const SizedBox(height: 16),

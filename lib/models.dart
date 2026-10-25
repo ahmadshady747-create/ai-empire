@@ -143,6 +143,14 @@ class EventChoice {
   /// تغير مباشر في الرصيد النقدي (ربح استثمار، دين، شراء...).
   final int cash;
 
+  /// تغير مباشر في مخزون الحوسبة (شراء وقت حوسبة، أو توفيره بكفاءة).
+  final int compute;
+
+  /// جولة تدريب نموذج: عدد مستويات النموذج المكتسبة بهذا الخيار.
+  /// إن كان مخزون الحوسبة 20 أو أكثر، يستهلك المحرك 20 منها ويمنح
+  /// مستوى إضافيا واحدا، ويظهر ذلك في بطاقة النتيجة بعد القرار.
+  final int trainLevels;
+
   /// الفصل التالي في قصة متسلسلة، إن كان هذا الخيار يفتح واحدا.
   /// بهذا لا ينتهي القرار عند نتيجته، بل يحدد ما سيحدث بعد سنة.
   final String? nextId;
@@ -159,6 +167,8 @@ class EventChoice {
     this.job,
     this.jobSalary = 0,
     this.cash = 0,
+    this.compute = 0,
+    this.trainLevels = 0,
     this.nextId,
   });
 }
@@ -357,6 +367,7 @@ const achievementLabels = {
   'survivor': '🛡️ نجا من أزمة عالمية',
   'unicorn': '🦄 شركة بقيمة مليارية',
   'firstmodel': '🤖 أطلق نموذجه الأول',
+  'frontier': '🤖 نموذج رائد من المستوى 3 فأعلى',
 };
 
 String stageLabel(int age) {
@@ -388,4 +399,5 @@ const traitLabels = {
   'unicorn': 'يونيكورن',
   'opensource': 'مفتوح المصدر',
   'firstmodel': 'أطلق نموذجا',
+  'datadebt': 'ديون بيانات',
 };

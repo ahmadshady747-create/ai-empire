@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ai_empire/data/training_events.dart';
 import 'package:ai_empire/game_engine.dart';
+import 'package:ai_empire/models.dart';
 
 void main() {
   test('رحلة كاملة تنتهي بنهاية وسجل غير فارغ', () {
@@ -73,6 +75,52 @@ void main() {
       engine2.nextEvent();
       expect(engine2.currentEvent!.id.startsWith('yearly_'), isTrue);
     }
+  });
+
+  test('نظام التدريب: حوسبة مخزنة ومستوى نموذج بسقف 5 وحفظ', () {
+    final engine = GameEngine()..newLife();
+    expect(engine.modelLevel, 0);
+    expect(engine.compute, 0);
+
+    // جمع حوسبة دون تدريب.
+    engine.applyChoice(const EventChoice(
+        text: 'x', outcome: 'x', compute: 25, ageJump: 0));
+    expect(engine.compute, 25);
+
+    // جولة تدريب مع مخزون 20+: تستهلك 20 وتمنح مستوى إضافيا.
+    engine.applyChoice(const EventChoice(
+        text: 'x', outcome: 'x', trainLevels: 1, ageJump: 0));
+    expect(engine.modelLevel, 2);
+    expect(engine.compute, 5);
+
+    // جولة تدريب دون مخزون كاف: مستوى واحد فقط.
+    engine.applyChoice(const EventChoice(
+        text: 'x', outcome: 'x', trainLevels: 1, ageJump: 0));
+    expect(engine.modelLevel, 3);
+
+    // السقف 5 لا يُتجاوز مهما تكرر التدريب.
+    for (var i = 0; i < 10; i++) {
+      engine.applyChoice(const EventChoice(
+          text: 'x', outcome: 'x', trainLevels: 1, ageJump: 0));
+    }
+    expect(engine.modelLevel, 5);
+    expect(engine.achievements, contains('frontier'));
+
+    // الحفظ والاستئناف يحفظان مستوى النموذج والحوسبة.
+    final restored = GameEngine.fromJson(engine.toJson());
+    expect(restored.modelLevel, 5);
+    expect(restored.compute, engine.compute);
+
+    // حدث التسريب يشترط سمة ديون البيانات، وحدث التدريب الأول يناسب
+    // من لا يملكها (الفئة العمرية 24-50).
+    final leakEvent =
+        trainingEvents.firstWhere((e) => e.id == 'train_leak');
+    expect(leakEvent.fits(30, {'datadebt'}, {}), isTrue);
+    expect(leakEvent.fits(30, {}, {}), isFalse);
+    final firstEvent =
+        trainingEvents.firstWhere((e) => e.id == 'train_first');
+    expect(firstEvent.fits(30, {}, {}), isTrue);
+    expect(firstEvent.choices.length, 3);
   });
 
   test('عدة شركات مختلفة على الأقل في الأسماء أو الدول', () {
