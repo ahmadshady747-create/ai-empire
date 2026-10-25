@@ -172,13 +172,53 @@ class _ManagementScreenState extends State<ManagementScreen>
                       ),
                 ]),
                 _panel([
-                  const Text('البحث',
+                  const Text('البحث — مشاريع بأثمان ومدد',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
                   _row('تقدم البحث', '${s.researchProgress} / 100'),
                   _row('تقدم التدريب', '${s.trainingProgress} / 100'),
+                  _row('مكافأة البحث الدائمة', '+${s.researchBoost}'),
+                  _row('مكافأة التدريب الدائمة', '+${s.trainingBoost}'),
+                  _row('مكافأة نمو المستخدمين', '+${s.userGrowthBoost}'),
                   const Text(
-                      'عند اكتمال البحث أو التدريب يرتفع مستوى النموذج درجة. أفعال البحث التفصيلية تأتي في جولة البحث.'),
+                      'عند اكتمال البحث أو التدريب يرتفع مستوى النموذج درجة. مشروع بحثي واحد نشط فقط: اختر اتجاهك، فالثمن يُدفع مقدما والتأثير دائم ويقوّي نظاما آخر.'),
+                  const SizedBox(height: 12),
+                  if (s.activeResearch != null)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                                'مشروع نشط: ${s.activeResearch!.name}',
+                                style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold)),
+                            Text(
+                                'الأسبوع ${s.activeResearch!.weeksDone} من ${s.activeResearch!.durationWeeks}'),
+                            const SizedBox(height: 6),
+                            LinearProgressIndicator(
+                              value: s.activeResearch!.weeksDone /
+                                  s.activeResearch!.durationWeeks,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  for (final def in ManagementState.researchCatalog)
+                    _ResearchRow(
+                      def: def,
+                      active: s.activeResearch?.id == def.id,
+                      done: s.completedResearch.contains(def.id),
+                      canAfford: s.cash >= def.cost,
+                      anyActive: s.activeResearch != null,
+                      onStart: () {
+                        setState(() {
+                          s.startResearch(def.id);
+                        });
+                      },
+                    ),
                 ]),
                 _panel([
                   const Text('البيانات',
@@ -278,6 +318,56 @@ class _ManagementScreenState extends State<ManagementScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// صف مشروع بحثي واحد: ثمنه ومدته وتأثيره الدائم وزر بدئه.
+class _ResearchRow extends StatelessWidget {
+  final ({String id, String name, String description, int cost, int weeks, String effect}) def;
+  final bool active;
+  final bool done;
+  final bool canAfford;
+  final bool anyActive;
+  final VoidCallback onStart;
+
+  const _ResearchRow({
+    required this.def,
+    required this.active,
+    required this.done,
+    required this.canAfford,
+    required this.anyActive,
+    required this.onStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(def.name,
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(def.description),
+            Text('الثمن: ${def.cost} — المدة: ${def.weeks} أسابيع'),
+            Text('عند الاكتمال: ${def.effect}'),
+            if (done) const Text('مكتمل ✓'),
+            if (active) const Text('نشط الآن'),
+            const SizedBox(height: 8),
+            if (!done && !active)
+              OutlinedButton(
+                onPressed: (!anyActive && canAfford) ? onStart : null,
+                child: Text(canAfford
+                    ? 'بدء المشروع'
+                    : 'نقد غير كاف'),
+              ),
+          ],
+        ),
       ),
     );
   }

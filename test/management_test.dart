@@ -126,6 +126,85 @@ void main() {
     expect(restored.services.first.id, 'consulting');
     expect(restored.services.first.bigClient, isTrue);
   });
+
+  test('بدء مشروع بحث يخصم ثمنه ويرفض مشروعا ثانيا أو مكررا', () {
+    final s = ManagementState();
+    final cashBefore = s.cash;
+    expect(s.startResearch('architecture'), isTrue);
+    expect(s.cash, cashBefore - 8000);
+    expect(s.activeResearch?.id, 'architecture');
+    expect(s.startResearch('scaling'), isFalse);
+    expect(s.cash, cashBefore - 8000);
+  });
+
+  test('بدء مشروع بحث بلا نقد كاف مرفوض', () {
+    final s = ManagementState(cash: 100);
+    expect(s.startResearch('alignment'), isFalse);
+    expect(s.activeResearch, isNull);
+  });
+
+  test('مشروع المواءمة يكتمل بعد مدته ويرفع السمعة ولا يتكرر', () {
+    final s = ManagementState();
+    expect(s.startResearch('alignment'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 4; i++) {
+      last = s.advanceWeek(random: Random(11));
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('alignment'));
+    expect(last?.researchCompleted, contains('مواءمة'));
+    expect(s.startResearch('alignment'), isFalse);
+    // السمعة أعلى بعشر نقاط بالضبط من حالة ضابطة بنفس البذرة،
+    // لأن تحركات المنافسين قد تخفضها أسبوعيا في الحالتين معا.
+    final control = ManagementState();
+    for (var i = 0; i < 4; i++) {
+      control.advanceWeek(random: Random(11));
+    }
+    expect(s.reputation, control.reputation + 10);
+  });
+
+  test('مشروع المعمارية يسرّع البحث دائما بعد اكتماله', () {
+    final s = ManagementState();
+    s.startResearch('architecture');
+    for (var i = 0; i < 6; i++) {
+      s.advanceWeek(random: Random(2));
+    }
+    expect(s.researchBoost, 2);
+    final plain = ManagementState(researchProgress: 0);
+    plain.advanceWeek(random: Random(2));
+    final boosted = ManagementState(
+        researchProgress: 0, researchBoost: 2);
+    boosted.advanceWeek(random: Random(2));
+    expect(boosted.researchProgress,
+        greaterThan(plain.researchProgress));
+  });
+
+  test('مشروعا التوسع والوكلاء يقوّيان التدريب ونمو المستخدمين', () {
+    final scaled = ManagementState();
+    scaled.startResearch('scaling');
+    for (var i = 0; i < 5; i++) {
+      scaled.advanceWeek(random: Random(4));
+    }
+    expect(scaled.trainingBoost, 4);
+
+    final agented = ManagementState();
+    agented.startResearch('agents');
+    for (var i = 0; i < 5; i++) {
+      agented.advanceWeek(random: Random(4));
+    }
+    expect(agented.userGrowthBoost, 5);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على مشروع البحث والمكافآت', () {
+    final s = ManagementState(researchBoost: 2, trainingBoost: 4);
+    s.startResearch('agents');
+    s.advanceWeek(random: Random(6));
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.researchBoost, 2);
+    expect(restored.trainingBoost, 4);
+    expect(restored.activeResearch?.id, 'agents');
+    expect(restored.activeResearch?.weeksDone, 1);
+  });
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

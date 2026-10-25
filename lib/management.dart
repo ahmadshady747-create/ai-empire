@@ -80,6 +80,49 @@ class ServiceContract {
       );
 }
 
+/// مشروع بحثي واحد: اتجاه بحث بأصل أصلي من تصميم هذه اللعبة،
+/// له ثمن نقدي ومدة بالأسابيع وتأثير دائم عند اكتماله. لا يكتمل
+/// مشروعان معا أبدا: التركيز على اتجاه واحد هو ثمن الاختيار،
+/// فلا استراتيجية بحثية مهيمنة واحدة.
+class ResearchProject {
+  final String id;
+  final String name;
+  final String description;
+  final int cost;
+  final int durationWeeks;
+  int weeksDone;
+
+  ResearchProject({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.cost,
+    required this.durationWeeks,
+    this.weeksDone = 0,
+  });
+
+  bool get completed => weeksDone >= durationWeeks;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'cost': cost,
+        'durationWeeks': durationWeeks,
+        'weeksDone': weeksDone,
+      };
+
+  factory ResearchProject.fromJson(Map<String, dynamic> j) =>
+      ResearchProject(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        description: j['description'] as String,
+        cost: (j['cost'] as num).toInt(),
+        durationWeeks: (j['durationWeeks'] as num).toInt(),
+        weeksDone: (j['weeksDone'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// تقرير أسبوع واحد: كل رقم فيه محسوب فعلا من حالة ما قبل الأسبوع
 /// وما بعده، لا تقدير ولا نص جاهز.
 class WeekReport {
@@ -106,6 +149,7 @@ class WeekReport {
   final int reputationBefore;
   final int reputationAfter;
   final List<String> rivalMoves;
+  final String researchCompleted;
   final List<String> lines;
 
   const WeekReport({
@@ -132,6 +176,7 @@ class WeekReport {
     required this.reputationBefore,
     required this.reputationAfter,
     required this.rivalMoves,
+    this.researchCompleted = '',
     required this.lines,
   });
 
@@ -162,6 +207,11 @@ class ManagementState {
   int creditLimit;
   int creditUsed;
   List<ServiceContract> services;
+  ResearchProject? activeResearch;
+  int researchBoost;
+  int trainingBoost;
+  int userGrowthBoost;
+  List<String> completedResearch;
 
   ManagementState({
     this.week = 1,
@@ -180,13 +230,94 @@ class ManagementState {
     this.creditLimit = 50000,
     this.creditUsed = 0,
     List<ServiceContract>? services,
+    this.activeResearch,
+    this.researchBoost = 0,
+    this.trainingBoost = 0,
+    this.userGrowthBoost = 0,
+    List<String>? completedResearch,
   })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1),
               Rival(name: 'نورال للأنظمة', modelLevel: 2),
               Rival(name: 'قمة الحوسبة', modelLevel: 1),
             ],
-        services = services ?? [];
+        services = services ?? [],
+        completedResearch = completedResearch ?? [];
+
+  /// كتالوج مشاريع البحث الأصلي: أربعة اتجاهات من عصر النماذج
+  /// الحدودية والوكلاء الحالي، لا من عصر قديم. كل اتجاه له
+  /// ثمن ومدة وتأثير دائم مختلف، فيتشابك مع نظام آخر.
+  static const List<({String id, String name, String description, int cost, int weeks, String effect})>
+      researchCatalog = [
+    (
+      id: 'architecture',
+      name: 'معمارية جديدة',
+      description: 'تصميم معمارية أقدر على الاستدلال الطويل والوكلاء.',
+      cost: 8000,
+      weeks: 6,
+      effect: 'بحثك الأسبوعي أسرع بنقطتين دائما.',
+    ),
+    (
+      id: 'scaling',
+      name: 'قوانين التوسع',
+      description: 'قياس كيف ينمو الأداء مع الحجم والبيانات والحوسبة.',
+      cost: 6000,
+      weeks: 5,
+      effect: 'تدريبك الأسبوعي أسرع بأربع نقاط دائما.',
+    ),
+    (
+      id: 'alignment',
+      name: 'مواءمة وأمان',
+      description: 'مواءمة النموذج مع المستخدمين وتقليل مخاطره.',
+      cost: 5000,
+      weeks: 4,
+      effect: 'سمعتك ترتفع 10 نقاط عند الاكتمال.',
+    ),
+    (
+      id: 'agents',
+      name: 'وكلاء وأدوات',
+      description: 'وكلاء يستخدمون أدوات وينفذون مهام متعددة الخطوات.',
+      cost: 7000,
+      weeks: 5,
+      effect: 'نمو مستخدميك الأسبوعي أسرع بخمسة دائما.',
+    ),
+  ];
+
+  /// بدء مشروع بحث: مشروع واحد نشط فقط، ولا إعادة لمشروع
+  /// مكتمل، ولا بدء بلا نقد كاف. الثمن يُدفع مقدما.
+  bool startResearch(String id) {
+    if (activeResearch != null) return false;
+    if (completedResearch.contains(id)) return false;
+    final def = researchCatalog.firstWhere((d) => d.id == id);
+    if (cash < def.cost) return false;
+    cash -= def.cost;
+    activeResearch = ResearchProject(
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      cost: def.cost,
+      durationWeeks: def.weeks,
+    );
+    return true;
+  }
+
+  /// تطبيق تأثير مشروع مكتمل: كل اتجاه يقوّي نظاما آخر،
+  /// لا مكافأة نقدية مباشرة، حتى لا يصير البحث دخلاً مجانيا.
+  String _applyResearchEffect(ResearchProject project) {
+    switch (project.id) {
+      case 'architecture':
+        researchBoost += 2;
+      case 'scaling':
+        trainingBoost += 4;
+      case 'alignment':
+        reputation = _clampInt(reputation + 10, 0, 100);
+      case 'agents':
+        userGrowthBoost += 5;
+    }
+    final def =
+        researchCatalog.firstWhere((d) => d.id == project.id);
+    return 'اكتمل مشروع البحث "${project.name}": ${def.effect}';
+  }
 
   /// كتالوج الخدمات الأصلي: خمس خدمات حول النماذج، لا نماذج فقط.
   /// أسماء العملاء خيالية عامة، لا تشير لأي شركة حقيقية.
@@ -358,7 +489,7 @@ class ManagementState {
 
     // 2) نمو المستخدمين: ينمو مع مستوى النموذج والسمعة، ويتباطأ
     // إن تراجعت السمعة كثيرا. لا ينخفض المستخدمون تحت الصفر.
-    var userDelta = 4 + modelLevel * 2 + reputation ~/ 25 + r.nextInt(7);
+    var userDelta = 4 + modelLevel * 2 + reputation ~/ 25 + r.nextInt(7) + userGrowthBoost;
     if (reputation < 30) userDelta -= 6;
     users = _clampInt(users + userDelta, 0, 1000000);
 
@@ -369,8 +500,8 @@ class ManagementState {
     final rentalSlow =
         services.any((s) => s.id == 'compute_rental') ? 6 : 0;
     researchProgress +=
-        _clampInt(6 + r.nextInt(6) - teamSlow, 1, 100);
-    final trainingGain = computeReserved >= 20 ? 12 : 4;
+        _clampInt(6 + r.nextInt(6) - teamSlow + researchBoost, 1, 100);
+    final trainingGain = (computeReserved >= 20 ? 12 : 4) + trainingBoost;
     trainingProgress += _clampInt(trainingGain - rentalSlow, 1, 100);
     // الحوسبة المحجوزة تُستهلك في أسبوعها، وتعود متاحة جزئيا
     // في الأسبوع التالي، مطروحا منها ما استهلكته الخدمات.
@@ -387,6 +518,18 @@ class ManagementState {
     if (trainingProgress >= 100) {
       trainingProgress -= 100;
       modelLevel += 1;
+    }
+
+    // 3ب) تقدم مشروع البحث النشط: أسبوع من مدته كل أسبوع،
+    // وعند اكتماله يُطبق تأثيره الدائم مرة واحدة فقط.
+    var researchCompleted = '';
+    if (activeResearch != null) {
+      activeResearch!.weeksDone += 1;
+      if (activeResearch!.completed) {
+        researchCompleted = _applyResearchEffect(activeResearch!);
+        completedResearch.add(activeResearch!.id);
+        activeResearch = null;
+      }
     }
 
     // 4) حداثة البيانات تتقادم أسبوعا بعد أسبوع.
@@ -467,6 +610,7 @@ class ManagementState {
       'البحث: $researchBefore → $researchProgress، التدريب: $trainingBefore → $trainingProgress.',
       if (modelLevel != modelBefore)
         'ارتفع مستوى نموذجك من $modelBefore إلى $modelLevel.',
+      if (researchCompleted.isNotEmpty) researchCompleted,
       ...rivalMoves,
       for (final c in churned)
         'فقدت عميل خدمة فجأة: $c — إيراده يسقط من الأسبوع التالي.',
@@ -497,6 +641,7 @@ class ManagementState {
       reputationBefore: reputationBefore,
       reputationAfter: reputation,
       rivalMoves: rivalMoves,
+      researchCompleted: researchCompleted,
       lines: lines,
     );
   }
@@ -518,6 +663,11 @@ class ManagementState {
         'creditLimit': creditLimit,
         'creditUsed': creditUsed,
         'services': services.map((s) => s.toJson()).toList(),
+        'activeResearch': activeResearch?.toJson(),
+        'researchBoost': researchBoost,
+        'trainingBoost': trainingBoost,
+        'userGrowthBoost': userGrowthBoost,
+        'completedResearch': completedResearch,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -541,6 +691,16 @@ class ManagementState {
         creditUsed: (j['creditUsed'] as num?)?.toInt() ?? 0,
         services: (j['services'] as List?)
             ?.map((e) => ServiceContract.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        activeResearch: j['activeResearch'] == null
+            ? null
+            : ResearchProject.fromJson(
+                j['activeResearch'] as Map<String, dynamic>),
+        researchBoost: (j['researchBoost'] as num?)?.toInt() ?? 0,
+        trainingBoost: (j['trainingBoost'] as num?)?.toInt() ?? 0,
+        userGrowthBoost: (j['userGrowthBoost'] as num?)?.toInt() ?? 0,
+        completedResearch: (j['completedResearch'] as List?)
+            ?.map((e) => e as String)
             .toList(),
       );
 }
