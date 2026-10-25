@@ -205,6 +205,74 @@ void main() {
     expect(restored.activeResearch?.id, 'agents');
     expect(restored.activeResearch?.weeksDone, 1);
   });
+
+  test('شراء البيانات: ثمن مقدم وكمية وجودة وحداثة بحسب العرض', () {
+    final s = ManagementState();
+    expect(s.buyData('web'), isTrue);
+    expect(s.cash, 150000 - 5000);
+    expect(s.dataQuantity, 800 + 500);
+    expect(s.dataQuality, 55 - 5);
+    expect(s.dataFreshness, 80 + 15);
+
+    final curated = ManagementState();
+    expect(curated.buyData('curated'), isTrue);
+    expect(curated.dataQuantity, 800 + 150);
+    expect(curated.dataQuality, 55 + 10);
+    expect(curated.dataFreshness, 80 + 5);
+
+    final poor = ManagementState(cash: 100);
+    expect(poor.buyData('specialized'), isFalse);
+    expect(poor.cash, 100);
+    expect(poor.dataQuantity, 800);
+  });
+
+  test('تنظيف البيانات يرفع الجودة ويسقط كمية، وتجديدها يرفع الحداثة فقط', () {
+    final s = ManagementState();
+    expect(s.cleanData(), isTrue);
+    expect(s.cash, 150000 - 3000);
+    expect(s.dataQuality, 55 + 15);
+    expect(s.dataQuantity, 800 - 50);
+    expect(s.refreshData(), isTrue);
+    // الحداثة من 80 + 25، مقيدة بالسقف 100.
+    expect(s.dataFreshness, 100);
+    expect(s.dataQuantity, 750);
+    expect(s.dataQuality, 70);
+
+    final full = ManagementState(dataQuality: 100, dataFreshness: 100);
+    expect(full.cleanData(), isFalse);
+    expect(full.refreshData(), isFalse);
+    expect(full.cash, 150000);
+  });
+
+  test('جودة بيانات منخفضة تبطئ التدريب، وعالية تسرّعه', () {
+    final plain = ManagementState(trainingProgress: 0);
+    plain.advanceWeek(random: Random(5));
+    final low = ManagementState(trainingProgress: 0, dataQuality: 30);
+    low.advanceWeek(random: Random(5));
+    expect(low.trainingProgress, lessThan(plain.trainingProgress));
+    final high = ManagementState(trainingProgress: 0, dataQuality: 90);
+    high.advanceWeek(random: Random(5));
+    expect(high.trainingProgress, greaterThan(plain.trainingProgress));
+  });
+
+  test('حداثة بيانات منخفضة تبطئ البحث فعلا', () {
+    final plain = ManagementState(researchProgress: 0);
+    plain.advanceWeek(random: Random(5));
+    final stale = ManagementState(researchProgress: 0, dataFreshness: 20);
+    stale.advanceWeek(random: Random(5));
+    expect(stale.researchProgress, lessThan(plain.researchProgress));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على حالة البيانات بعد الشراء والتنظيف', () {
+    final s = ManagementState();
+    s.buyData('specialized');
+    s.cleanData();
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.dataQuantity, s.dataQuantity);
+    expect(restored.dataQuality, s.dataQuality);
+    expect(restored.dataFreshness, s.dataFreshness);
+    expect(restored.cash, s.cash);
+  });
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

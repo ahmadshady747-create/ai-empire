@@ -319,6 +319,78 @@ class ManagementState {
     return 'اكتمل مشروع البحث "${project.name}": ${def.effect}';
   }
 
+  /// كتالوج عروض البيانات الأصلي: ثلاثة عروض بثمن وكمية
+  /// وجودة وحداثة مختلفة، بلا عرض مهيمن واحد: الرخيص الواسع
+  /// يضخم الكمية لكنه يخفّض متوسط الجودة، والمنقى غالٍ على
+  /// كميته لكنه يرفع الجودة، والمتخصص حديث لكن كميته متوسطة.
+  static const List<({String id, String name, String description, int cost, int quantity, int qualityDelta, int freshnessDelta})>
+      dataCatalog = [
+    (
+      id: 'web',
+      name: 'مجموعة ويب واسعة',
+      description: 'نصوص عامة كثيرة من مصادر مفتوحة، تحتاج تنظيفا.',
+      cost: 5000,
+      quantity: 500,
+      qualityDelta: -5,
+      freshnessDelta: 15,
+    ),
+    (
+      id: 'curated',
+      name: 'مجموعة منقاة مختارة',
+      description: 'بيانات مختارة ومراجعة، كميتها أقل وثمنها أعلى.',
+      cost: 8000,
+      quantity: 150,
+      qualityDelta: 10,
+      freshnessDelta: 5,
+    ),
+    (
+      id: 'specialized',
+      name: 'مجموعة متخصصة حديثة',
+      description: 'بيانات متخصصة حديثة من مجال ضيق واحد.',
+      cost: 6000,
+      quantity: 200,
+      qualityDelta: 5,
+      freshnessDelta: 20,
+    ),
+  ];
+
+  /// شراء بيانات: ثمن مقدم، والكمية تزيد دائما، أما الجودة
+  /// والحداثة فتتحركان بحسب العرض، فقد تنخفض الجودة مع
+  /// العرض الواسع الخام. الشراء متكرر لأن مجموعات جديدة
+  /// تصل كل مرة، لكن النقد هو ما يحدّه.
+  bool buyData(String id) {
+    final def = dataCatalog.firstWhere((d) => d.id == id);
+    if (cash < def.cost) return false;
+    cash -= def.cost;
+    dataQuantity += def.quantity;
+    dataQuality = _clampInt(dataQuality + def.qualityDelta, 0, 100);
+    dataFreshness =
+        _clampInt(dataFreshness + def.freshnessDelta, 0, 100);
+    return true;
+  }
+
+  /// تنظيف البيانات: ثمن مقدم، يرفع الجودة 15 نقطة لكنه
+  /// يسقط 50 وحدة رديئة أو مكررة من الكمية. لا تنظيف بلا
+  /// نقد كاف، ولا تنظيف لجودة كاملة، ولا تنظيف يمحي الكمية.
+  bool cleanData() {
+    if (cash < 3000 || dataQuality >= 100 || dataQuantity < 50) {
+      return false;
+    }
+    cash -= 3000;
+    dataQuality = _clampInt(dataQuality + 15, 0, 100);
+    dataQuantity -= 50;
+    return true;
+  }
+
+  /// تجديد البيانات: ثمن مقدم، يرفع الحداثة 25 نقطة دون
+  /// تغيير الكمية أو الجودة. لا تجديد لحداثة كاملة.
+  bool refreshData() {
+    if (cash < 2000 || dataFreshness >= 100) return false;
+    cash -= 2000;
+    dataFreshness = _clampInt(dataFreshness + 25, 0, 100);
+    return true;
+  }
+
   /// كتالوج الخدمات الأصلي: خمس خدمات حول النماذج، لا نماذج فقط.
   /// أسماء العملاء خيالية عامة، لا تشير لأي شركة حقيقية.
   static const List<({String id, String name, int revenue, int cost, int compute, bool team, bool big})>
@@ -499,9 +571,23 @@ class ManagementState {
     final teamSlow = teamServiceCount * 3;
     final rentalSlow =
         services.any((s) => s.id == 'compute_rental') ? 6 : 0;
-    researchProgress +=
-        _clampInt(6 + r.nextInt(6) - teamSlow + researchBoost, 1, 100);
-    final trainingGain = (computeReserved >= 20 ? 12 : 4) + trainingBoost;
+    // تشابك البيانات: حداثة منخفضة تحت 50 تبطئ البحث
+    // نقطتين، وجودة منخفضة تحت 40 تبطئ التدريب أربع
+    // نقاط، وجودة عالية 80 فأعلى تسرّعه نقطتين. القيم
+    // الابتدائية (حداثة 80 وجودة 55) لا تتأثر، فيبقى
+    // سلوك الأساس كما هو حتى يهمل اللاعب بياناته أو
+    // ينظفها ويرفعها.
+    final freshnessSlow = dataFreshness < 50 ? 2 : 0;
+    researchProgress += _clampInt(
+        6 + r.nextInt(6) - teamSlow + researchBoost - freshnessSlow,
+        1,
+        100);
+    var trainingGain = (computeReserved >= 20 ? 12 : 4) + trainingBoost;
+    if (dataQuality < 40) {
+      trainingGain -= 4;
+    } else if (dataQuality >= 80) {
+      trainingGain += 2;
+    }
     trainingProgress += _clampInt(trainingGain - rentalSlow, 1, 100);
     // الحوسبة المحجوزة تُستهلك في أسبوعها، وتعود متاحة جزئيا
     // في الأسبوع التالي، مطروحا منها ما استهلكته الخدمات.

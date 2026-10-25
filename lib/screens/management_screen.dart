@@ -221,14 +221,85 @@ class _ManagementScreenState extends State<ManagementScreen>
                     ),
                 ]),
                 _panel([
-                  const Text('البيانات',
+                  const Text('البيانات — شراء وتنظيف وتجديد',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
                   _row('الكمية', '${s.dataQuantity}'),
                   _row('الجودة', '${s.dataQuality} / 100'),
                   _row('الحداثة', '${s.dataFreshness} / 100'),
                   const Text(
-                      'الحداثة تتقادم أسبوعا بعد أسبوع. شراء البيانات وتنظيفها يأتيان في جولة البيانات.'),
+                      'الحداثة تتقادم نقطتين كل أسبوع. جودة منخفضة تحت 40 تبطئ التدريب، وحداثة منخفضة تحت 50 تبطئ البحث، وجودة 80 فأعلى تسرّع التدريب. التنظيف يرفع الجودة لكنه يسقط كمية، والتجديد يرفع الحداثة فقط — فلا عرض واحد يغني عن الباقي.'),
+                  const SizedBox(height: 12),
+                  for (final def in ManagementState.dataCatalog)
+                    _DataRow(
+                      def: def,
+                      canAfford: s.cash >= def.cost,
+                      onBuy: () {
+                        setState(() {
+                          s.buyData(def.id);
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text('تنظيف البيانات',
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold)),
+                          const Text(
+                              'الثمن: 3000 — الجودة +15، الكمية −50.'),
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: (s.cash >= 3000 &&
+                                    s.dataQuality < 100 &&
+                                    s.dataQuantity >= 50)
+                                ? () {
+                                    setState(() {
+                                      s.cleanData();
+                                    });
+                                  }
+                                : null,
+                            child: const Text('تنظيف البيانات'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text('تجديد البيانات',
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold)),
+                          const Text(
+                              'الثمن: 2000 — الحداثة +25، دون تغيير الكمية أو الجودة.'),
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: (s.cash >= 2000 &&
+                                    s.dataFreshness < 100)
+                                ? () {
+                                    setState(() {
+                                      s.refreshData();
+                                    });
+                                  }
+                                : null,
+                            child: const Text('تجديد البيانات'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ]),
                 _panel([
                   const Text('الحوسبة',
@@ -366,6 +437,47 @@ class _ResearchRow extends StatelessWidget {
                     ? 'بدء المشروع'
                     : 'نقد غير كاف'),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// صف عرض بيانات واحد: ثمنه وكميته وأثره على الجودة والحداثة وزر شرائه.
+class _DataRow extends StatelessWidget {
+  final ({String id, String name, String description, int cost, int quantity, int qualityDelta, int freshnessDelta}) def;
+  final bool canAfford;
+  final VoidCallback onBuy;
+
+  const _DataRow({
+    required this.def,
+    required this.canAfford,
+    required this.onBuy,
+  });
+
+  String _signed(int v) => v >= 0 ? '+$v' : '$v';
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(def.name,
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(def.description),
+            Text(
+                'الثمن: ${def.cost} — الكمية: +${def.quantity} — الجودة: ${_signed(def.qualityDelta)} — الحداثة: ${_signed(def.freshnessDelta)}'),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: canAfford ? onBuy : null,
+              child: Text(canAfford ? 'شراء المجموعة' : 'نقد غير كاف'),
+            ),
           ],
         ),
       ),
