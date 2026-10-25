@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ai_empire/data/arcs.dart';
 import 'package:ai_empire/data/world_events.dart';
 import 'package:ai_empire/data/yearly_events.dart';
 import 'package:ai_empire/game_engine.dart';
@@ -92,6 +93,61 @@ void main() {
     expect(yearlyEventForAge(40).choices.length, 5);
     expect(yearlyEventForAge(60).choices.length, 4);
     expect(yearlyEventForAge(25, worldEchoTitle: 'حدث تجريبي').choices.length, 6);
+  });
+
+  test('صدى القوس: سنة التدبير بعد فصل قصة متسلسلة تحمل خيار متابعة باسم القوس ثم تُغلق النافذة', () {
+    final engine = GameEngine()..newLife();
+    // فصل قصة متسلسلة مباشر، وحلّه يفتح نافذة صدى القوس.
+    engine.currentEvent = arcChapters.first;
+    final arcName = arcChapters.first.arcName!;
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    expect(engine.arcEchoPending, isTrue);
+    expect(engine.lastArcName, arcName);
+    // سنة التدبير التالية (يفرضها yearlyTurn بعد الفصل).
+    engine.nextEvent();
+    expect(engine.currentEvent!.id.startsWith('yearly_'), isTrue);
+    final echo = engine.currentEvent!.choices
+        .where((c) => c.text.contains(arcName));
+    expect(echo.length, 1,
+        reason: 'سنة التدبير بعد فصل قصة يجب أن تحمل خيار صدى واحدا باسم القوس');
+    // تطبيق أي خيار في سنة التدبير يغلق النافذة: السنة التالية بلا صدى.
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    expect(engine.arcEchoPending, isFalse);
+    engine.yearlyTurn = true;
+    engine.nextEvent();
+    expect(
+        engine.currentEvent!.choices.where((c) => c.text.contains(arcName)).length,
+        0,
+        reason: 'نافذة صدى القوس تُغلق بعد سنة تدبير واحدة');
+  });
+
+  test('صدى القوس يبقى عند الاستئناف قبل تطبيق سنة التدبير', () {
+    final engine = GameEngine()..newLife();
+    engine.currentEvent = arcChapters.first;
+    final arcName = arcChapters.first.arcName!;
+    engine.applyChoice(engine.currentEvent!.choices.first);
+    engine.nextEvent();
+    expect(engine.currentEvent!.id.startsWith('yearly_'), isTrue);
+    final restored = GameEngine.fromJson(engine.toJson());
+    expect(restored.arcEchoPending, isTrue);
+    expect(restored.lastArcName, arcName);
+    expect(
+        restored.currentEvent!.choices
+            .where((c) => c.text.contains(arcName))
+            .length,
+        1,
+        reason: 'الاستئناف قبل تطبيق سنة التدبير يجب أن يعيد خيار صدى القوس نفسه');
+  });
+
+  test('سنة التدبير مع صدى القوس تزيد خيارا واحدا، ومع الصديين تزيد خيارين', () {
+    expect(yearlyEventForAge(25, arcEchoTitle: 'قوس تجريبي').choices.length, 6);
+    expect(yearlyEventForAge(60, arcEchoTitle: 'قوس تجريبي').choices.length, 5);
+    expect(
+        yearlyEventForAge(25,
+                worldEchoTitle: 'حدث تجريبي', arcEchoTitle: 'قوس تجريبي')
+            .choices
+            .length,
+        7);
   });
 
   test('المحرك يحصي سنوات التدبير ويحفظ العدد مع الاستئناف', () {

@@ -67,6 +67,14 @@ class GameEngine {
   String? lastWorldTitle;
   bool worldEchoPending = false;
 
+  /// صدى القوس المتسلسل (البند 6، الجولة الثالثة): بعد حلّ فصل من
+  /// قصة متسلسلة، تحمل سنة التدبير التالية خيار متابعة مرتبطا
+  /// باسم القوس، فتتداخل الأقواس مع إيقاع السنوات بدلا من أن
+  /// تنتهي القصة عند فصلها الأخير. تُغلق النافذة بعد سنة التدبير
+  /// تلك، مثل صدى العالم تماما.
+  String? lastArcName;
+  bool arcEchoPending = false;
+
   Country get country =>
       countries.firstWhere((c) => c.name == person.country, orElse: () => countries.first);
 
@@ -143,6 +151,8 @@ class GameEngine {
     yearlyCount = 0;
     lastWorldTitle = null;
     worldEchoPending = false;
+    lastArcName = null;
+    arcEchoPending = false;
     // المسيرة تنتهي بالتقاعد بين 60 و75، وتقنية البداية تؤثر قليلا.
     lifespan = (62 + (stats.tech - 50) ~/ 5 + _r.nextInt(16))
         .clamp(58, 75);
@@ -195,6 +205,7 @@ class GameEngine {
         modelLevel: modelLevel,
         achievementCount: achievements.length,
         worldEchoTitle: worldEchoPending ? lastWorldTitle : null,
+        arcEchoTitle: arcEchoPending ? lastArcName : null,
       );
       yearlyCount++;
       return event;
@@ -239,6 +250,7 @@ class GameEngine {
     final achievementsBefore = Set<String>.from(achievements);
     final event = currentEvent;
     final wasWorld = event?.isWorld ?? false;
+    final wasArcChapter = event?.isArcChapter ?? false;
     // القصة المتسلسلة تستمر، وسنة التدبير لا تتكرر مرتين متتاليتين،
     // وكل حدث مصيري آخر يتبعه سنة تدبير.
     pendingNextId = choice.nextId;
@@ -249,14 +261,20 @@ class GameEngine {
     } else {
       yearlyTurn = true;
     }
-    // صدى العالم: سنة التدبير تُغلق نافذة الصدى بعد تطبيقها،
-    // والنجاة من حدث عالمي تفتح نافذة جديدة باسمه.
+    // صدى العالم وصدى القوس: سنة التدبير تُغلق نافذتي الصدى بعد
+    // تطبيقها، والنجاة من حدث عالمي تفتح نافذة باسمه، وحلّ فصل
+    // قصة متسلسلة يفتح نافذة باسم القوس.
     if (event != null && event.id.startsWith('yearly_')) {
       worldEchoPending = false;
+      arcEchoPending = false;
     }
     if (wasWorld && choice.deathCause == null) {
       lastWorldTitle = event?.title;
       worldEchoPending = true;
+    }
+    if (wasArcChapter && choice.deathCause == null && event?.arcName != null) {
+      lastArcName = event!.arcName;
+      arcEchoPending = true;
     }
     if (event != null) {
       log.add(LogEntry(
@@ -469,6 +487,8 @@ class GameEngine {
         'yearlyCount': yearlyCount,
         'lastWorldTitle': lastWorldTitle,
         'worldEchoPending': worldEchoPending,
+        'lastArcName': lastArcName,
+        'arcEchoPending': arcEchoPending,
         'currentEventId': currentEvent?.id,
       };
 
@@ -499,6 +519,8 @@ class GameEngine {
     engine.yearlyCount = (j['yearlyCount'] as num?)?.toInt() ?? 0;
     engine.lastWorldTitle = j['lastWorldTitle'] as String?;
     engine.worldEchoPending = j['worldEchoPending'] as bool? ?? false;
+    engine.lastArcName = j['lastArcName'] as String?;
+    engine.arcEchoPending = j['arcEchoPending'] as bool? ?? false;
     final eventId = j['currentEventId'] as String?;
     if (eventId != null && !engine.isDead) {
       // سنة التدبير الحالية أُحصيت عند اختيارها، فإطارها هو
@@ -512,6 +534,8 @@ class GameEngine {
               worldEchoTitle: engine.worldEchoPending
                   ? engine.lastWorldTitle
                   : null,
+              arcEchoTitle:
+                  engine.arcEchoPending ? engine.lastArcName : null,
             )
           : engine._findEvent(eventId);
     }

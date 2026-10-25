@@ -17,12 +17,18 @@ import 'events.dart';
 /// عابرة بل يتداخل مع إيقاع السنوات. النافذة تُغلق بعد سنة
 /// التدبير تلك سواء أُخذ الخيار أم لا (يغلقها المحرك)، فلا يتكرر
 /// الصدى ولا يعلق إلى الأبد.
+/// البند 6 (إيقاع متكامل)، الجولة الثالثة: صدى القوس المتسلسل.
+/// بعد حلّ فصل من قصة متسلسلة، تحمل سنة التدبير التالية خيار
+/// متابعة واحدا مرتبطا باسم القوس، فتتداخل الأقواس مع سنوات
+/// التدبير بدلا من أن تنتهي القصة عند فصلها. وقد يجتمع الصديان
+/// في سنة واحدة فيظهر الخياران معا، وكلاهما يُغلق بعدها.
 LifeEvent yearlyEventForAge(
   int age, {
   int cycle = 0,
   int modelLevel = 0,
   int achievementCount = 0,
   String? worldEchoTitle,
+  String? arcEchoTitle,
 }) {
   final base = _yearlyEventForAge(
     age,
@@ -30,23 +36,33 @@ LifeEvent yearlyEventForAge(
     modelLevel: modelLevel,
     achievementCount: achievementCount,
   );
-  if (worldEchoTitle == null) return base;
+  if (worldEchoTitle == null && arcEchoTitle == null) return base;
+  final extra = <EventChoice>[];
+  if (worldEchoTitle != null) {
+    extra.add(c(
+      '🔁 أستثمر في درس "$worldEchoTitle": أحوّله إلى إجراء دائم في شركتي',
+      'الدرس لم يبق ذكرى: صار إجراء دائما، وسمعتك وبحثك تقدما معا.',
+      const Effect(reputation: 4, research: 6, money: 2),
+      cash: 5000,
+      jump: 1,
+    ));
+  }
+  if (arcEchoTitle != null) {
+    extra.add(c(
+      '🔁 أتابع قوس "$arcEchoTitle": أحوّل ما حدث فيه إلى علاقات وعقود دائمة',
+      'القصة لم تنته عند فصلها: علاقاتها صارت عقودا، واسمك صار مرتبطا بها في السوق.',
+      const Effect(social: 6, reputation: 4, tech: 4),
+      cash: 3000,
+      jump: 1,
+    ));
+  }
   return LifeEvent(
     id: base.id,
     minAge: base.minAge,
     maxAge: base.maxAge,
     title: base.title,
     story: base.story,
-    choices: [
-      ...base.choices,
-      c(
-        '🔁 أستثمر في درس "$worldEchoTitle": أحوّله إلى إجراء دائم في شركتي',
-        'الدرس لم يبق ذكرى: صار إجراء دائما، وسمعتك وبحثك تقدما معا.',
-        const Effect(reputation: 4, research: 6, money: 2),
-        cash: 5000,
-        jump: 1,
-      ),
-    ],
+    choices: [...base.choices, ...extra],
   );
 }
 
