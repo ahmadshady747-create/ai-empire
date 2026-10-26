@@ -473,11 +473,25 @@ class _ManagementScreenState extends State<ManagementScreen>
                   _row('المستخدمون', '${s.users}'),
                   _row('سعر المستخدم', '${s.pricePerUser}'),
                   _row('تكلفة الاستدلال للمستخدم', '${s.inferencePerUser}'),
-                  _row('إيراد المنتجات الأسبوعي', '${s.productsRevenue}'),
+                  _row('إيراد المنتجات الأسبوعي', '${s.effectiveProductsRevenue}'),
                   _row('صيانة المنتجات الأسبوعية', '${s.productsCost}'),
-                  _row('نمو المستخدمين من المنتجات', '+${s.productsGrowth}'),
+                  _row('نمو المستخدمين من المنتجات', '+${s.effectiveProductsGrowth}'),
+                  _row('التسعير المميز', s.premiumPricing ? 'مفعّل (+30% إيراد، -2 نمو)' : 'مطفأ'),
                   const Text(
-                      'لا منتج مهيمن واحد: الواجهة البرمجية أعلى صافي أسبوعي لكن نموها الأبطأ، ومساعد البرمجة أعلى نمو لكن ثمنه الأعلى وصافيه الأدنى، وروبوت المحادثة أرخص دخول بصافي ونمو متوسطين. كل منتج مطلق يدر إيراده ويكلف صيانته كل أسبوع.'),
+                      'لا منتج مهيمن واحد: الواجهة البرمجية أعلى صافي أسبوعي لكن نموها الأبطأ، ومساعد البرمجة أعلى نمو لكن ثمنه الأعلى وصافيه الأدنى، وروبوت المحادثة أرخص دخول بصافي ونمو متوسطين. كل منتج مطلق يدر إيراده ويكلف صيانته كل أسبوع. التسعير المميز قرار أسبوعي: إيراد أعلى الآن مقابل نمو أبطأ، فلا يصلح دائما.'),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: s.launchedProducts.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              s.setPremiumPricing(!s.premiumPricing);
+                            });
+                          },
+                    child: Text(s.premiumPricing
+                        ? 'إطفاء التسعير المميز'
+                        : 'تشغيل التسعير المميز (+30% إيراد، -2 نمو)'),
+                  ),
                   const SizedBox(height: 12),
                   for (final def in ManagementState.productCatalog)
                     _ProductRow(

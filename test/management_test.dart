@@ -711,6 +711,53 @@ void main() {
     expect(survival.body.contains('الإفلاس'), isTrue);
   });
 
+  test('التسعير المميز يرفع إيراد المنتجات 30% ويخفض نموها نقطتين', () {
+    final s = ManagementState();
+    expect(s.launchProduct('chatbot'), isTrue);
+    expect(s.effectiveProductsRevenue, 600);
+    expect(s.effectiveProductsGrowth, 3);
+    s.setPremiumPricing(true);
+    expect(s.effectiveProductsRevenue, 780);
+    expect(s.effectiveProductsGrowth, 1);
+    s.setPremiumPricing(false);
+    expect(s.effectiveProductsRevenue, 600);
+    expect(s.effectiveProductsGrowth, 3);
+  });
+
+  test('التسعير المميز أسبوعا واحدا: إيراد أعلى ونمو أبطأ بنقطتين', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.launchProduct('chatbot'), isTrue);
+    expect(control.launchProduct('chatbot'), isTrue);
+    s.setPremiumPricing(true);
+    final report = s.advanceWeek(random: _ZeroRandom());
+    final controlReport = control.advanceWeek(random: _ZeroRandom());
+    expect(report.productRevenue, 780);
+    expect(controlReport.productRevenue, 600);
+    expect(report.usersAfter, controlReport.usersAfter - 2);
+    expect(report.cashAfter, controlReport.cashAfter + 180);
+    expect(report.lines.join(' ').contains('التسعير المميز'), isTrue);
+  });
+
+  test('حفظ واسترجاع التسعير المميز', () {
+    final s = ManagementState();
+    expect(s.launchProduct('chatbot'), isTrue);
+    s.setPremiumPricing(true);
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.premiumPricing, isTrue);
+    expect(restored.effectiveProductsRevenue, 780);
+    expect(restored.effectiveProductsGrowth, 1);
+  });
+
+  test('توافق مع حالة قديمة بلا حقل التسعير المميز', () {
+    final s = ManagementState();
+    expect(s.launchProduct('chatbot'), isTrue);
+    final oldJson = s.toJson()..remove('premiumPricing');
+    final restoredOld = ManagementState.fromJson(oldJson);
+    expect(restoredOld.premiumPricing, isFalse);
+    expect(restoredOld.effectiveProductsRevenue, 600);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

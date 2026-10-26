@@ -392,6 +392,13 @@ class ManagementState {
   int inferenceSaving;
   List<String> launchedProducts;
 
+  /// التسعير المميز للمنتجات المطلقة: مطفأ افتراضا.
+  /// عند تشغيله يرتفع إيراد المنتجات 30% لكن نمو
+  /// المستخدمين منها ينخفض نقطتين، فلا يكون رفع السعر
+  /// حلا مهيمنا دائما: نقد أسرع الآن مقابل قاعدة
+  /// مستخدمين أبطأ نموا.
+  bool premiumPricing;
+
   /// أسماء المنافسين الذين استُقطب خبير منهم من قبل:
   /// استقطاب واحد فقط لكل منافس، فلا يصير الاستقطاب
   /// مصدر تسريع بلا سقف.
@@ -432,6 +439,7 @@ class ManagementState {
     List<String>? completedModels,
     this.inferenceSaving = 0,
     List<String>? launchedProducts,
+    this.premiumPricing = false,
     List<String>? poachedRivals,
     List<String>? hiredStaff,
     this.maintenanceWeeks = 0,
@@ -655,6 +663,23 @@ class ManagementState {
       0,
       (a, id) =>
           a + productCatalog.firstWhere((d) => d.id == id).growth);
+
+  /// إيراد المنتجات الفعّال مع التسعير: مميز يضيف 30%
+  /// (قسمة صحيحة)، وعادي يبقي الإيراد كما هو.
+  int get effectiveProductsRevenue =>
+      premiumPricing ? productsRevenue * 13 ~/ 10 : productsRevenue;
+
+  /// نمو المستخدمين الفعّال مع التسعير: مميز يخصم
+  /// نقطتين، ولا ينخفض تحت الصفر أبدا.
+  int get effectiveProductsGrowth => premiumPricing
+      ? _clampInt(productsGrowth - 2, 0, 100)
+      : productsGrowth;
+
+  /// تبديل التسعير المميز: قرار أسبوعي قابل للعكس،
+  /// بلا ثمن مقدم، لأن ثمنه هو النمو المفقود نفسه.
+  void setPremiumPricing(bool value) {
+    premiumPricing = value;
+  }
 
   /// كتالوج عروض البيانات الأصلي: ثلاثة عروض بثمن وكمية
   /// وجودة وحداثة مختلفة، بلا عرض مهيمن واحد: الرخيص الواسع
@@ -982,7 +1007,7 @@ class ManagementState {
   int get creditRemaining => creditLimit - creditUsed;
   int get creditInterest => creditUsed ~/ 50;
   int get totalWeeklyRevenue =>
-      weeklyRevenue + servicesRevenue + productsRevenue;
+      weeklyRevenue + servicesRevenue + effectiveProductsRevenue;
   int get totalWeeklyCost =>
       weeklyCost + servicesCost + creditInterest + productsCost + staffSalaries;
   int get totalWeeklyNet => totalWeeklyRevenue - totalWeeklyCost;
@@ -1048,7 +1073,7 @@ class ManagementState {
     final staffCost = staffSalaries;
     final svcRevenue = servicesRevenue;
     final svcCost = servicesCost;
-    final prodRevenue = productsRevenue;
+    final prodRevenue = effectiveProductsRevenue;
     final prodCost = productsCost;
     final interest = creditInterest;
     cash += revenue +
@@ -1069,7 +1094,7 @@ class ManagementState {
 
     // 2) نمو المستخدمين: ينمو مع مستوى النموذج والسمعة، ويتباطأ
     // إن تراجعت السمعة كثيرا. لا ينخفض المستخدمون تحت الصفر.
-    var userDelta = 4 + modelLevel * 2 + reputation ~/ 25 + r.nextInt(7) + userGrowthBoost + productsGrowth;
+    var userDelta = 4 + modelLevel * 2 + reputation ~/ 25 + r.nextInt(7) + userGrowthBoost + effectiveProductsGrowth;
     if (reputation < 30) userDelta -= 6;
     users = _clampInt(users + userDelta, 0, 1000000);
 
@@ -1221,6 +1246,8 @@ class ManagementState {
         'الخدمات: إيراد $svcRevenue، تكلفة $svcCost، صافي ${svcRevenue - svcCost}.',
       if (prodRevenue > 0 || prodCost > 0)
         'المنتجات: إيراد $prodRevenue، صيانة $prodCost، صافي ${prodRevenue - prodCost}.',
+      if (premiumPricing && prodRevenue > 0)
+        'التسعير المميز مفعّل: إيراد المنتجات أعلى 30% لكن نمو المستخدمين منها أبطأ نقطتين.',
       if (interest > 0) 'فائدة الائتمان: $interest (مستخدم: $creditUsed).',
       if (creditDrawn > 0)
         'سُحب من الائتمان: $creditDrawn لتغطية العجز (متبق: $creditRemaining).',
@@ -1298,6 +1325,7 @@ class ManagementState {
         'completedModels': completedModels,
         'inferenceSaving': inferenceSaving,
         'launchedProducts': launchedProducts,
+        'premiumPricing': premiumPricing,
         'poachedRivals': poachedRivals,
         'hiredStaff': hiredStaff,
         'maintenanceWeeks': maintenanceWeeks,
@@ -1346,6 +1374,7 @@ class ManagementState {
         launchedProducts: (j['launchedProducts'] as List?)
             ?.map((e) => e as String)
             .toList(),
+        premiumPricing: (j['premiumPricing'] as bool?) ?? false,
         poachedRivals: (j['poachedRivals'] as List?)
             ?.map((e) => e as String)
             .toList(),
