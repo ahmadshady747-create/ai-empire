@@ -529,6 +529,62 @@ void main() {
     expect(restored.creditRemaining, 45000);
   });
 
+  test('استقطاب خبير يخفض المنافس ويرفع تسريع التدريب بثمن مقدم', () {
+    final s = ManagementState();
+    expect(s.rivals[1].name, 'نورال للأنظمة');
+    expect(s.rivals[1].strategy, 'جودة');
+    expect(s.poachRival('نورال للأنظمة'), isTrue);
+    expect(s.cash, 141000);
+    expect(s.rivals[1].modelLevel, 1);
+    expect(s.trainingBoost, 2);
+    expect(s.poachedRivals, ['نورال للأنظمة']);
+  });
+
+  test('الاستقطاب يرفض المستوى 1 والمكرر وبلا نقد وبلا خصم', () {
+    final s = ManagementState();
+    expect(s.poachRival('مدار للذكاء'), isFalse);
+    expect(s.poachRival('نورال للأنظمة'), isTrue);
+    expect(s.poachRival('نورال للأنظمة'), isFalse);
+    expect(s.cash, 141000);
+    expect(s.rivals[1].modelLevel, 1);
+    final poor = ManagementState()..cash = 8000;
+    expect(poor.poachRival('نورال للأنظمة'), isFalse);
+    expect(poor.cash, 8000);
+    expect(poor.rivals[1].modelLevel, 2);
+    expect(s.poachRival('منافس غير موجود'), isFalse);
+  });
+
+  test('الاستقطاب يسرّع التدريب في الأسبوع التالي مقابل حالة ضابطة', () {
+    final poached = ManagementState();
+    poached.poachRival('نورال للأنظمة');
+    final control = ManagementState();
+    final poachedReport =
+        poached.advanceWeek(random: _ZeroRandom());
+    final controlReport =
+        control.advanceWeek(random: _ZeroRandom());
+    expect(poachedReport.trainingAfter,
+        greaterThan(controlReport.trainingAfter));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على الاستقطاب وتوافق مع حالة قديمة', () {
+    final s = ManagementState();
+    s.poachRival('نورال للأنظمة');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.poachedRivals, ['نورال للأنظمة']);
+    expect(restored.rivals[1].modelLevel, 1);
+    expect(restored.trainingBoost, 2);
+    expect(restored.rivals[1].strategy, 'جودة');
+    final old = ManagementState.fromJson({
+      'cash': 150000,
+      'rivals': [
+        {'name': 'مدار للذكاء', 'modelLevel': 1},
+        {'name': 'نورال للأنظمة', 'modelLevel': 2},
+      ],
+    });
+    expect(old.poachedRivals, isEmpty);
+    expect(old.rivals[1].strategy, 'سرعة');
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

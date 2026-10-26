@@ -456,8 +456,46 @@ class _ManagementScreenState extends State<ManagementScreen>
                   const Text('المنافسون (خياليون)',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                      'استقطاب خبير من منافس يكلف 9000 مقدما، يخفض مستوى المنافس درجة (لا تحت مستوى 1)، ويرفع تسريع تدريبك نقطتين دائما. مرة واحدة لكل منافس فقط، والمنافس قد يستعيد مستواه في الأسابيع التالية، فلا استقطاب مهيمن.'),
                   for (final rival in s.rivals)
-                    _row(rival.name, 'مستوى ${rival.modelLevel}'),
+                    Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                                '${rival.name} — مستوى ${rival.modelLevel} — استراتيجية: ${rival.strategy}'),
+                            if (s.poachedRivals.contains(rival.name))
+                              const Text('استُقطب خبير منه من قبل'),
+                            const SizedBox(height: 8),
+                            OutlinedButton(
+                              onPressed: (!s.poachedRivals
+                                          .contains(rival.name) &&
+                                      rival.modelLevel > 1 &&
+                                      s.cash >=
+                                          ManagementState.poachCost)
+                                  ? () {
+                                      setState(() {
+                                        s.poachRival(rival.name);
+                                      });
+                                    }
+                                  : null,
+                              child: Text(s.poachedRivals
+                                      .contains(rival.name)
+                                  ? 'استُقطب منه من قبل'
+                                  : rival.modelLevel <= 1
+                                      ? 'مستواه 1 فلا ما يُضعف'
+                                      : s.cash < ManagementState.poachCost
+                                          ? 'نقد غير كاف'
+                                          : 'استقطاب خبير (9000)'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   const Text(
                       'أسماء خيالية من تأليف اللعبة، لا تشير لأي شركة حقيقية.'),
                 ]),

@@ -14,13 +14,20 @@ class Rival {
   final String name;
   int modelLevel;
 
-  Rival({required this.name, required this.modelLevel});
+  /// استراتيجية المنافس المعلنة في تبويب المنافسين: سرعة
+  /// إصدار، أو جودة، أو سعر. أسماء خيالية واستراتيجيات
+  /// عامة، لا تشير لأي شركة حقيقية.
+  final String strategy;
 
-  Map<String, dynamic> toJson() => {'name': name, 'modelLevel': modelLevel};
+  Rival({required this.name, required this.modelLevel, this.strategy = 'سرعة'});
+
+  Map<String, dynamic> toJson() =>
+      {'name': name, 'modelLevel': modelLevel, 'strategy': strategy};
 
   factory Rival.fromJson(Map<String, dynamic> j) => Rival(
         name: j['name'] as String,
         modelLevel: (j['modelLevel'] as num).toInt(),
+        strategy: j['strategy'] as String? ?? 'سرعة',
       );
 }
 
@@ -274,6 +281,11 @@ class ManagementState {
   int inferenceSaving;
   List<String> launchedProducts;
 
+  /// أسماء المنافسين الذين استُقطب خبير منهم من قبل:
+  /// استقطاب واحد فقط لكل منافس، فلا يصير الاستقطاب
+  /// مصدر تسريع بلا سقف.
+  List<String> poachedRivals;
+
   ManagementState({
     this.week = 1,
     this.cash = 150000,
@@ -300,16 +312,18 @@ class ManagementState {
     List<String>? completedModels,
     this.inferenceSaving = 0,
     List<String>? launchedProducts,
+    List<String>? poachedRivals,
   })  : rivals = rivals ??
             [
-              Rival(name: 'مدار للذكاء', modelLevel: 1),
-              Rival(name: 'نورال للأنظمة', modelLevel: 2),
-              Rival(name: 'قمة الحوسبة', modelLevel: 1),
+              Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
+              Rival(name: 'نورال للأنظمة', modelLevel: 2, strategy: 'جودة'),
+              Rival(name: 'قمة الحوسبة', modelLevel: 1, strategy: 'سعر'),
             ],
         services = services ?? [],
         completedResearch = completedResearch ?? [],
         completedModels = completedModels ?? [],
-        launchedProducts = launchedProducts ?? [];
+        launchedProducts = launchedProducts ?? [],
+        poachedRivals = poachedRivals ?? [];
 
   /// كتالوج مشاريع البحث الأصلي: أربعة اتجاهات من عصر النماذج
   /// الحدودية والوكلاء الحالي، لا من عصر قديم. كل اتجاه له
@@ -730,6 +744,31 @@ class ManagementState {
     return true;
   }
 
+  /// ثمن استقطاب خبير واحد من منافس.
+  static const poachCost = 9000;
+
+  /// استقطاب خبير من منافس: ثمن مقدم 9000، يخفض مستوى
+  /// نموذج المنافس درجة واحدة (لا تحت مستوى 1)، ويرفع
+  /// تسريع تدريبك الدائم نقطتين، لأن الخبير ينقل خبرته
+  /// إليك. مرفوض بلا خصم: إن لم يوجد المنافس، أو كان
+  /// مستواه 1 فلا ما يُضعف، أو استُقطب منه من قبل، أو
+  /// كان النقد غير كاف. لا استراتيجية مهيمنة هنا: الثمن
+  /// مرتفع، والاستقطاب مرة واحدة لكل منافس، والمنافس
+  /// قد يستعيد مستواه بتحركات الأسابيع التالية.
+  bool poachRival(String name) {
+    final matches = rivals.where((r) => r.name == name).toList();
+    if (matches.isEmpty) return false;
+    final rival = matches.first;
+    if (rival.modelLevel <= 1) return false;
+    if (poachedRivals.contains(name)) return false;
+    if (cash < poachCost) return false;
+    cash -= poachCost;
+    rival.modelLevel -= 1;
+    trainingBoost += 2;
+    poachedRivals.add(name);
+    return true;
+  }
+
   int get servicesRevenue =>
       services.fold(0, (a, s) => a + s.weeklyRevenue);
   int get servicesCost => services.fold(0, (a, s) => a + s.weeklyCost);
@@ -1048,6 +1087,7 @@ class ManagementState {
         'completedModels': completedModels,
         'inferenceSaving': inferenceSaving,
         'launchedProducts': launchedProducts,
+        'poachedRivals': poachedRivals,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -1091,6 +1131,9 @@ class ManagementState {
             .toList(),
         inferenceSaving: (j['inferenceSaving'] as num?)?.toInt() ?? 0,
         launchedProducts: (j['launchedProducts'] as List?)
+            ?.map((e) => e as String)
+            .toList(),
+        poachedRivals: (j['poachedRivals'] as List?)
             ?.map((e) => e as String)
             .toList(),
       );
