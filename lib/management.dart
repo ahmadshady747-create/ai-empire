@@ -123,6 +123,50 @@ class ResearchProject {
       );
 }
 
+/// وظيفة نموذج واحدة: عمل تفصيلي على النموذج بأصل أصلي من
+/// تصميم هذه اللعبة، له ثمن نقدي ومدة بالأسابيع وتأثير دائم
+/// عند اكتماله. وظيفة واحدة نشطة فقط، كالمشروع البحثي،
+/// فلا خيار مهيمن واحد: الجيل الجديد يرفع المستوى لكنه
+/// يصفّر تقدم التدريب، والتقطير يرخّص الاستدلال دون رفع
+/// المستوى، والاسترجاع يرفع السمعة والنمو دون رفع المستوى.
+class ModelJob {
+  final String id;
+  final String name;
+  final String description;
+  final int cost;
+  final int durationWeeks;
+  int weeksDone;
+
+  ModelJob({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.cost,
+    required this.durationWeeks,
+    this.weeksDone = 0,
+  });
+
+  bool get completed => weeksDone >= durationWeeks;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'cost': cost,
+        'durationWeeks': durationWeeks,
+        'weeksDone': weeksDone,
+      };
+
+  factory ModelJob.fromJson(Map<String, dynamic> j) => ModelJob(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        description: j['description'] as String,
+        cost: (j['cost'] as num).toInt(),
+        durationWeeks: (j['durationWeeks'] as num).toInt(),
+        weeksDone: (j['weeksDone'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// تقرير أسبوع واحد: كل رقم فيه محسوب فعلا من حالة ما قبل الأسبوع
 /// وما بعده، لا تقدير ولا نص جاهز.
 class WeekReport {
@@ -150,6 +194,7 @@ class WeekReport {
   final int reputationAfter;
   final List<String> rivalMoves;
   final String researchCompleted;
+  final String modelCompleted;
   final List<String> lines;
 
   const WeekReport({
@@ -177,6 +222,7 @@ class WeekReport {
     required this.reputationAfter,
     required this.rivalMoves,
     this.researchCompleted = '',
+    this.modelCompleted = '',
     required this.lines,
   });
 
@@ -212,6 +258,9 @@ class ManagementState {
   int trainingBoost;
   int userGrowthBoost;
   List<String> completedResearch;
+  ModelJob? activeModelJob;
+  List<String> completedModels;
+  int inferenceSaving;
 
   ManagementState({
     this.week = 1,
@@ -235,6 +284,9 @@ class ManagementState {
     this.trainingBoost = 0,
     this.userGrowthBoost = 0,
     List<String>? completedResearch,
+    this.activeModelJob,
+    List<String>? completedModels,
+    this.inferenceSaving = 0,
   })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1),
@@ -242,7 +294,8 @@ class ManagementState {
               Rival(name: 'قمة الحوسبة', modelLevel: 1),
             ],
         services = services ?? [],
-        completedResearch = completedResearch ?? [];
+        completedResearch = completedResearch ?? [],
+        completedModels = completedModels ?? [];
 
   /// كتالوج مشاريع البحث الأصلي: أربعة اتجاهات من عصر النماذج
   /// الحدودية والوكلاء الحالي، لا من عصر قديم. كل اتجاه له
@@ -317,6 +370,75 @@ class ManagementState {
     final def =
         researchCatalog.firstWhere((d) => d.id == project.id);
     return 'اكتمل مشروع البحث "${project.name}": ${def.effect}';
+  }
+
+  /// كتالوج وظائف النماذج الأصلي: ثلاثة أعمال على النموذج
+  /// بثمن ومدة وتأثير مختلف، بلا عمل مهيمن واحد: الجيل
+  /// الجديد وحده يرفع المستوى لكنه يصفّر تقدم التدريب،
+  /// والتقطير يرخّص الاستدلال دون رفع المستوى، والاسترجاع
+  /// يرفع السمعة والنمو دون رفع المستوى.
+  static const List<({String id, String name, String description, int cost, int weeks, String effect})>
+      modelCatalog = [
+    (
+      id: 'new_generation',
+      name: 'جيل جديد',
+      description: 'تدريب جيل جديد من الصفر على بياناتك الحالية.',
+      cost: 12000,
+      weeks: 6,
+      effect: 'مستوى نموذجك يرتفع درجة عند الاكتمال، لكن تقدم التدريب الحالي يُصفَّر.',
+    ),
+    (
+      id: 'distillation',
+      name: 'تقطير نموذج خفيف',
+      description: 'نموذج أصغر مقطّر من الرئيسي، أرخص في الاستدلال.',
+      cost: 6000,
+      weeks: 3,
+      effect: 'تكلفة الاستدلال لكل مستخدم تنخفض نقطة دائما.',
+    ),
+    (
+      id: 'retrieval',
+      name: 'استرجاع وأدوات',
+      description: 'نموذجك يستدعي معرفة خارجية ويستخدم أدوات.',
+      cost: 8000,
+      weeks: 4,
+      effect: 'سمعتك ترتفع 8 نقاط ونمو مستخدميك أسرع بثلاث نقاط دائما.',
+    ),
+  ];
+
+  /// بدء وظيفة نموذج: وظيفة واحدة نشطة فقط، ولا إعادة
+  /// لوظيفة مكتملة، ولا بدء بلا نقد كاف. الثمن يُدفع مقدما.
+  bool startModelJob(String id) {
+    if (activeModelJob != null) return false;
+    if (completedModels.contains(id)) return false;
+    final def = modelCatalog.firstWhere((d) => d.id == id);
+    if (cash < def.cost) return false;
+    cash -= def.cost;
+    activeModelJob = ModelJob(
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      cost: def.cost,
+      durationWeeks: def.weeks,
+    );
+    return true;
+  }
+
+  /// تطبيق تأثير وظيفة مكتملة: كل عمل يقوّي جانبا واحدا
+  /// فقط، ويترك الجوانب الأخرى كما هي، فلا عمل واحد
+  /// يغني عن بقية الإدارة.
+  String _applyModelEffect(ModelJob job) {
+    switch (job.id) {
+      case 'new_generation':
+        modelLevel += 1;
+        trainingProgress = 0;
+      case 'distillation':
+        inferenceSaving = _clampInt(inferenceSaving + 1, 0, 1);
+      case 'retrieval':
+        reputation = _clampInt(reputation + 8, 0, 100);
+        userGrowthBoost += 3;
+    }
+    final def = modelCatalog.firstWhere((d) => d.id == job.id);
+    return 'اكتملت وظيفة النموذج "${job.name}": ${def.effect}';
   }
 
   /// كتالوج عروض البيانات الأصلي: ثلاثة عروض بثمن وكمية
@@ -528,7 +650,9 @@ class ManagementState {
   int get pricePerUser => 12;
 
   /// تكلفة الاستدلال لكل مستخدم في الأسبوع (وحدات لعب).
-  int get inferencePerUser => 2;
+  /// التقطير وحده يخفضها نقطة، ولا تنخفض تحت نقطة واحدة
+  /// أبدا، فلا يصير الاستدلال مجانيا.
+  int get inferencePerUser => _clampInt(2 - inferenceSaving, 1, 2);
 
   int get weeklyRevenue => users * pricePerUser;
   int get weeklyInferenceCost => users * inferencePerUser;
@@ -644,6 +768,20 @@ class ManagementState {
       }
     }
 
+    // 3ج) تقدم وظيفة النموذج النشطة: أسبوع من مدتها كل
+    // أسبوع، وعند اكتمالها يُطبق تأثيرها مرة واحدة فقط.
+    // توضع بعد رفع المستوى بالتدريب، فيصفّر الجيل الجديد
+    // تقدم التدريب الحالي فعلا لا شكليا.
+    var modelCompleted = '';
+    if (activeModelJob != null) {
+      activeModelJob!.weeksDone += 1;
+      if (activeModelJob!.completed) {
+        modelCompleted = _applyModelEffect(activeModelJob!);
+        completedModels.add(activeModelJob!.id);
+        activeModelJob = null;
+      }
+    }
+
     // 4) حداثة البيانات تتقادم أسبوعا بعد أسبوع.
     dataFreshness = _clampInt(dataFreshness - 2, 0, 100);
 
@@ -725,6 +863,7 @@ class ManagementState {
       if (modelLevel != modelBefore)
         'ارتفع مستوى نموذجك من $modelBefore إلى $modelLevel.',
       if (researchCompleted.isNotEmpty) researchCompleted,
+      if (modelCompleted.isNotEmpty) modelCompleted,
       ...rivalMoves,
       for (final c in churned)
         'فقدت عميل خدمة فجأة: $c — إيراده يسقط من الأسبوع التالي.',
@@ -756,6 +895,7 @@ class ManagementState {
       reputationAfter: reputation,
       rivalMoves: rivalMoves,
       researchCompleted: researchCompleted,
+      modelCompleted: modelCompleted,
       lines: lines,
     );
   }
@@ -782,6 +922,9 @@ class ManagementState {
         'trainingBoost': trainingBoost,
         'userGrowthBoost': userGrowthBoost,
         'completedResearch': completedResearch,
+        'activeModelJob': activeModelJob?.toJson(),
+        'completedModels': completedModels,
+        'inferenceSaving': inferenceSaving,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -816,5 +959,13 @@ class ManagementState {
         completedResearch: (j['completedResearch'] as List?)
             ?.map((e) => e as String)
             .toList(),
+        activeModelJob: j['activeModelJob'] == null
+            ? null
+            : ModelJob.fromJson(
+                j['activeModelJob'] as Map<String, dynamic>),
+        completedModels: (j['completedModels'] as List?)
+            ?.map((e) => e as String)
+            .toList(),
+        inferenceSaving: (j['inferenceSaving'] as num?)?.toInt() ?? 0,
       );
 }

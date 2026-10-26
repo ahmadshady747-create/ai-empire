@@ -322,6 +322,93 @@ void main() {
     expect(restored.computeReserved, s.computeReserved);
     expect(restored.cash, s.cash);
   });
+
+  test('بدء وظيفة نموذج يخصم ثمنها ويرفض وظيفة ثانية أو بلا نقد', () {
+    final s = ManagementState();
+    expect(s.startModelJob('distillation'), isTrue);
+    expect(s.cash, 150000 - 6000);
+    expect(s.activeModelJob?.id, 'distillation');
+    expect(s.startModelJob('new_generation'), isFalse);
+    expect(s.cash, 150000 - 6000);
+    final poor = ManagementState(cash: 5000);
+    expect(poor.startModelJob('distillation'), isFalse);
+    expect(poor.activeModelJob, isNull);
+    expect(poor.cash, 5000);
+  });
+
+  test('التقطير يكتمل بعد مدته ويخفض تكلفة الاستدلال دون رفع المستوى', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.startModelJob('distillation'), isTrue);
+    for (var i = 0; i < 3; i++) {
+      s.advanceWeek(random: _ZeroRandom());
+      control.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.activeModelJob, isNull);
+    expect(s.completedModels, contains('distillation'));
+    expect(s.inferenceSaving, 1);
+    expect(s.inferencePerUser, 1);
+    expect(control.inferencePerUser, 2);
+    expect(s.modelLevel, control.modelLevel);
+    expect(s.startModelJob('distillation'), isFalse);
+  });
+
+  test('الجيل الجديد يكتمل بعد مدته ويرفع المستوى ويصفّر التدريب', () {
+    final s = ManagementState(trainingProgress: 80);
+    final control = ManagementState(trainingProgress: 80);
+    expect(s.startModelJob('new_generation'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 6; i++) {
+      last = s.advanceWeek(random: _ZeroRandom());
+      control.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.activeModelJob, isNull);
+    expect(s.completedModels, contains('new_generation'));
+    expect(s.modelLevel, control.modelLevel + 1);
+    expect(s.trainingProgress, 0);
+    expect(control.trainingProgress, 12);
+    expect(last!.modelCompleted.contains('جيل جديد'), isTrue);
+  });
+
+  test('الاسترجاع يكتمل بعد مدته ويرفع السمعة ونمو المستخدمين مقابل حالة ضابطة', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.startModelJob('retrieval'), isTrue);
+    for (var i = 0; i < 4; i++) {
+      s.advanceWeek(random: _ZeroRandom());
+      control.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.activeModelJob, isNull);
+    expect(s.completedModels, contains('retrieval'));
+    expect(s.userGrowthBoost, 3);
+    expect(s.reputation, control.reputation + 8);
+    expect(s.modelLevel, control.modelLevel);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على وظيفة النموذج والتقطير وتوافق مع حالة قديمة', () {
+    final s = ManagementState();
+    s.startModelJob('retrieval');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeModelJob?.id, 'retrieval');
+    expect(restored.cash, s.cash);
+    final d = ManagementState();
+    d.startModelJob('distillation');
+    for (var i = 0; i < 3; i++) {
+      d.advanceWeek(random: _ZeroRandom());
+    }
+    final restoredDone = ManagementState.fromJson(d.toJson());
+    expect(restoredDone.completedModels, contains('distillation'));
+    expect(restoredDone.inferenceSaving, 1);
+    expect(restoredDone.inferencePerUser, 1);
+    final oldJson = d.toJson()
+      ..remove('activeModelJob')
+      ..remove('completedModels')
+      ..remove('inferenceSaving');
+    final restoredOld = ManagementState.fromJson(oldJson);
+    expect(restoredOld.activeModelJob, isNull);
+    expect(restoredOld.completedModels, isEmpty);
+    expect(restoredOld.inferenceSaving, 0);
+  });
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

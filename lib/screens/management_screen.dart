@@ -344,13 +344,53 @@ class _ManagementScreenState extends State<ManagementScreen>
                   ),
                 ]),
                 _panel([
-                  const Text('النماذج',
+                  const Text('النماذج — وظائف بأثمان ومدد',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
                   _row('مستوى النموذج الرئيسي', '${s.modelLevel}'),
                   _row('أفضل منافس', '${s.bestRivalLevel}'),
+                  _row('تقدم التدريب', '${s.trainingProgress} / 100'),
+                  _row('تكلفة الاستدلال للمستخدم',
+                      '${s.inferencePerUser}'),
                   const Text(
-                      'التدريب والتحسين التفصيلي يأتيان في جولة النماذج.'),
+                      'وظيفة نموذج واحدة نشطة فقط: الجيل الجديد وحده يرفع المستوى لكنه يصفّر تقدم التدريب، والتقطير يرخّص الاستدلال دون رفع المستوى، والاسترجاع يرفع السمعة والنمو دون رفع المستوى — فلا عمل واحد يغني عن الباقي.'),
+                  const SizedBox(height: 12),
+                  if (s.activeModelJob != null)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                                'وظيفة نشطة: ${s.activeModelJob!.name}',
+                                style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold)),
+                            Text(
+                                'الأسبوع ${s.activeModelJob!.weeksDone} من ${s.activeModelJob!.durationWeeks}'),
+                            const SizedBox(height: 6),
+                            LinearProgressIndicator(
+                              value: s.activeModelJob!.weeksDone /
+                                  s.activeModelJob!.durationWeeks,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  for (final def in ManagementState.modelCatalog)
+                    _ModelRow(
+                      def: def,
+                      active: s.activeModelJob?.id == def.id,
+                      done: s.completedModels.contains(def.id),
+                      canAfford: s.cash >= def.cost,
+                      anyActive: s.activeModelJob != null,
+                      onStart: () {
+                        setState(() {
+                          s.startModelJob(def.id);
+                        });
+                      },
+                    ),
                 ]),
                 _panel([
                   const Text('المنتجات',
@@ -468,6 +508,56 @@ class _ResearchRow extends StatelessWidget {
                 onPressed: (!anyActive && canAfford) ? onStart : null,
                 child: Text(canAfford
                     ? 'بدء المشروع'
+                    : 'نقد غير كاف'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// صف وظيفة نموذج واحدة: ثمنها ومدتها وتأثيرها وزر بدئها.
+class _ModelRow extends StatelessWidget {
+  final ({String id, String name, String description, int cost, int weeks, String effect}) def;
+  final bool active;
+  final bool done;
+  final bool canAfford;
+  final bool anyActive;
+  final VoidCallback onStart;
+
+  const _ModelRow({
+    required this.def,
+    required this.active,
+    required this.done,
+    required this.canAfford,
+    required this.anyActive,
+    required this.onStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(def.name,
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(def.description),
+            Text('الثمن: ${def.cost} — المدة: ${def.weeks} أسابيع'),
+            Text('عند الاكتمال: ${def.effect}'),
+            if (done) const Text('مكتمل ✓'),
+            if (active) const Text('نشطة الآن'),
+            const SizedBox(height: 8),
+            if (!done && !active)
+              OutlinedButton(
+                onPressed: (!anyActive && canAfford) ? onStart : null,
+                child: Text(canAfford
+                    ? 'بدء الوظيفة'
                     : 'نقد غير كاف'),
               ),
           ],
