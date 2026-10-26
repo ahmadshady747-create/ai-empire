@@ -470,8 +470,33 @@ class _ManagementScreenState extends State<ManagementScreen>
                   _row('رواتب الأسبوع', '${s.weeklySalaries}'),
                   _row('إيراد الأسبوع', '${s.weeklyRevenue}'),
                   _row('تكلفة الاستدلال', '${s.weeklyInferenceCost}'),
+                  _row('الائتمان المستخدم', '${s.creditUsed}'),
+                  _row('الائتمان المتبقي', '${s.creditRemaining}'),
+                  _row('فائدة الائتمان الأسبوعية', '${s.creditInterest}'),
                   const Text(
-                      'القروض والسداد والتوظيف تأتي في جولة المالية.'),
+                      'الاقتراض يسحب من الائتمان إلى النقد الآن لكنه يرفع الفائدة 2% أسبوعيا على المستخدم؛ والسداد يخفضها. التوظيف يأتي في جولة لاحقة.'),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: s.creditRemaining >= 10000
+                        ? () {
+                            setState(() {
+                              s.takeLoan();
+                            });
+                          }
+                        : null,
+                    child: const Text('اقتراض 10000 من الائتمان'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: (s.cash >= 5000 && s.creditUsed >= 5000)
+                        ? () {
+                            setState(() {
+                              s.repayCredit(5000);
+                            });
+                          }
+                        : null,
+                    child: const Text('سداد 5000 من الائتمان'),
+                  ),
                 ]),
               ],
             ),

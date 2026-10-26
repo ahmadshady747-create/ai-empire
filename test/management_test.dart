@@ -474,6 +474,61 @@ void main() {
     expect(restoredOld.productsRevenue, 0);
   });
 
+  test('الاقتراض الصريح يضيف نقدا ويستخدم ائتمانا ويرفض فوق المتبقي',
+      () {
+    final s = ManagementState();
+    expect(s.takeLoan(), isTrue);
+    expect(s.cash, 160000);
+    expect(s.creditUsed, 10000);
+    expect(s.creditInterest, 200);
+    s.creditUsed = 45000;
+    expect(s.takeLoan(), isFalse);
+    expect(s.cash, 160000);
+    expect(s.creditUsed, 45000);
+  });
+
+  test('السداد الصريح يخفض المستخدم والفائدة ويرفض المخالف', () {
+    final s = ManagementState();
+    s.takeLoan();
+    expect(s.repayCredit(5000), isTrue);
+    expect(s.cash, 155000);
+    expect(s.creditUsed, 5000);
+    expect(s.creditInterest, 100);
+    expect(s.repayCredit(0), isFalse);
+    expect(s.repayCredit(-100), isFalse);
+    expect(s.repayCredit(6000), isFalse);
+    expect(s.cash, 155000);
+    expect(s.creditUsed, 5000);
+    final poor = ManagementState()..cash = 1000;
+    poor.creditUsed = 5000;
+    expect(poor.repayCredit(5000), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.creditUsed, 5000);
+  });
+
+  test('السداد يخفض فائدة الأسبوع التالي مقابل حالة ضابطة', () {
+    final paid = ManagementState();
+    paid.takeLoan();
+    paid.repayCredit(5000);
+    final unpaid = ManagementState();
+    unpaid.takeLoan();
+    final paidReport = paid.advanceWeek(random: _ZeroRandom());
+    final unpaidReport = unpaid.advanceWeek(random: _ZeroRandom());
+    expect(paidReport.creditInterest, 100);
+    expect(unpaidReport.creditInterest, 200);
+    expect(paidReport.creditInterest, lessThan(unpaidReport.creditInterest));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على الائتمان بعد اقتراض وسداد', () {
+    final s = ManagementState();
+    s.takeLoan();
+    s.repayCredit(5000);
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.creditUsed, 5000);
+    expect(restored.cash, s.cash);
+    expect(restored.creditRemaining, 45000);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

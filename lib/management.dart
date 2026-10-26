@@ -700,6 +700,36 @@ class ManagementState {
     return services.length < before;
   }
 
+  /// مبلغ الاقتراض الصريح من الائتمان المتبقي.
+  static const loanChunk = 10000;
+
+  /// مبلغ السداد الصريح من النقد نحو الائتمان المستخدم.
+  static const repayChunk = 5000;
+
+  /// اقتراض صريح من المالية: يسحب 10000 من الائتمان المتبقي إلى
+  /// النقد الآن، فيرفع المستخدم وبالتالي فائدة الأسبوع التالي (2%).
+  /// يفيد لتمويل فعل قبل أن يجبرك العجز على السحب التلقائي،
+  /// لكنه ليس نقدا مجانيا: الفائدة تدخل في تكلفة كل أسبوع بعده.
+  /// مرفوض إن لم يبق ائتمان كاف.
+  bool takeLoan() {
+    if (creditRemaining < loanChunk) return false;
+    cash += loanChunk;
+    creditUsed += loanChunk;
+    return true;
+  }
+
+  /// سداد صريح من المالية: يدفع [amount] من النقد نحو الائتمان
+  /// المستخدم، فيخفض فائدة الأسابيع التالية. مرفوض بصفر أو سالب،
+  /// أو فوق النقد، أو فوق المستخدم، ولا يخصم شيئا عند الرفض.
+  bool repayCredit(int amount) {
+    if (amount <= 0) return false;
+    if (amount > cash) return false;
+    if (amount > creditUsed) return false;
+    cash -= amount;
+    creditUsed -= amount;
+    return true;
+  }
+
   int get servicesRevenue =>
       services.fold(0, (a, s) => a + s.weeklyRevenue);
   int get servicesCost => services.fold(0, (a, s) => a + s.weeklyCost);
