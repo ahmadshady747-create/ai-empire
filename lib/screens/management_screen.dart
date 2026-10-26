@@ -393,14 +393,29 @@ class _ManagementScreenState extends State<ManagementScreen>
                     ),
                 ]),
                 _panel([
-                  const Text('المنتجات',
+                  const Text('المنتجات — إطلاق بأثمان ونتائج',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
                   _row('المستخدمون', '${s.users}'),
                   _row('سعر المستخدم', '${s.pricePerUser}'),
                   _row('تكلفة الاستدلال للمستخدم', '${s.inferencePerUser}'),
+                  _row('إيراد المنتجات الأسبوعي', '${s.productsRevenue}'),
+                  _row('صيانة المنتجات الأسبوعية', '${s.productsCost}'),
+                  _row('نمو المستخدمين من المنتجات', '+${s.productsGrowth}'),
                   const Text(
-                      'إطلاق المنتجات والتسويق والتسعير يأتي في جولة المنتجات.'),
+                      'لا منتج مهيمن واحد: الواجهة البرمجية أعلى صافي أسبوعي لكن نموها الأبطأ، ومساعد البرمجة أعلى نمو لكن ثمنه الأعلى وصافيه الأدنى، وروبوت المحادثة أرخص دخول بصافي ونمو متوسطين. كل منتج مطلق يدر إيراده ويكلف صيانته كل أسبوع.'),
+                  const SizedBox(height: 12),
+                  for (final def in ManagementState.productCatalog)
+                    _ProductRow(
+                      def: def,
+                      launched: s.launchedProducts.contains(def.id),
+                      canAfford: s.cash >= def.cost,
+                      onLaunch: () {
+                        setState(() {
+                          s.launchProduct(def.id);
+                        });
+                      },
+                    ),
                 ]),
                 _panel([
                   const Text('الخدمات — كل ما حول النماذج',
@@ -601,6 +616,49 @@ class _DataRow extends StatelessWidget {
               onPressed: canAfford ? onBuy : null,
               child: Text(canAfford ? 'شراء المجموعة' : 'نقد غير كاف'),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// صف منتج واحد: ثمن إطلاقه وإيراده وصيانته ونموه وزر إطلاقه.
+class _ProductRow extends StatelessWidget {
+  final ({String id, String name, String description, int cost, int revenue, int maintenance, int growth}) def;
+  final bool launched;
+  final bool canAfford;
+  final VoidCallback onLaunch;
+
+  const _ProductRow({
+    required this.def,
+    required this.launched,
+    required this.canAfford,
+    required this.onLaunch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(def.name,
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(def.description),
+            Text(
+                'ثمن الإطلاق: ${def.cost} — إيراد ${def.revenue} / أسبوع — صيانة ${def.maintenance} / أسبوع — نمو +${def.growth} مستخدم / أسبوع'),
+            if (launched) const Text('مطلق ✓'),
+            const SizedBox(height: 8),
+            if (!launched)
+              OutlinedButton(
+                onPressed: canAfford ? onLaunch : null,
+                child: Text(canAfford ? 'إطلاق المنتج' : 'نقد غير كاف'),
+              ),
           ],
         ),
       ),

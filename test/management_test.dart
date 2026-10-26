@@ -409,6 +409,71 @@ void main() {
     expect(restoredOld.completedModels, isEmpty);
     expect(restoredOld.inferenceSaving, 0);
   });
+  test('إطلاق المنتج يخصم ثمنه ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.launchProduct('chatbot'), isTrue);
+    expect(s.cash, 150000 - 9000);
+    expect(s.launchedProducts, contains('chatbot'));
+    expect(s.launchProduct('chatbot'), isFalse);
+    expect(s.cash, 150000 - 9000);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.launchProduct('api'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.launchedProducts, isEmpty);
+  });
+
+  test('المنتج يدر إيراده ويكلف صيانته وينمو بالمستخدمين أسبوعا واحدا', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.launchProduct('coding'), isTrue);
+    final report = s.advanceWeek(random: _ZeroRandom());
+    control.advanceWeek(random: _ZeroRandom());
+    expect(s.productsRevenue, 800);
+    expect(s.productsCost, 400);
+    expect(s.productsGrowth, 5);
+    expect(report.productRevenue, 800);
+    expect(report.productCost, 400);
+    expect(s.users, control.users + 5);
+    expect(s.cash, control.cash - 13000 + 400);
+    expect(report.lines.any((l) => l.contains('المنتجات:')), isTrue);
+  });
+
+  test('الواجهة أعلى صافي أسبوعي ومساعد البرمجة أعلى نمو ولا منتج مهيمن', () {
+    final apiDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'api');
+    final codingDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'coding');
+    final chatDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'chatbot');
+    expect(apiDef.revenue - apiDef.maintenance, 600);
+    expect(chatDef.revenue - chatDef.maintenance, 400);
+    expect(codingDef.revenue - codingDef.maintenance, 400);
+    expect(codingDef.growth, 5);
+    expect(apiDef.growth, 2);
+    expect(chatDef.cost, 9000);
+    expect(codingDef.cost, 13000);
+    final s = ManagementState();
+    expect(s.launchProduct('api'), isTrue);
+    expect(s.launchProduct('coding'), isTrue);
+    expect(s.productsRevenue, 1700);
+    expect(s.productsCost, 700);
+    expect(s.productsGrowth, 7);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على المنتجات وتوافق مع حالة قديمة', () {
+    final s = ManagementState();
+    s.launchProduct('chatbot');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.launchedProducts, contains('chatbot'));
+    expect(restored.productsRevenue, 600);
+    expect(restored.productsCost, 200);
+    expect(restored.cash, s.cash);
+    final oldJson = s.toJson()..remove('launchedProducts');
+    final restoredOld = ManagementState.fromJson(oldJson);
+    expect(restoredOld.launchedProducts, isEmpty);
+    expect(restoredOld.productsRevenue, 0);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

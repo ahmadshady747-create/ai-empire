@@ -178,6 +178,8 @@ class WeekReport {
   final int inferenceCost;
   final int servicesRevenue;
   final int servicesCost;
+  final int productRevenue;
+  final int productCost;
   final int creditInterest;
   final int creditDrawn;
   final int creditUsedAfter;
@@ -206,6 +208,8 @@ class WeekReport {
     required this.inferenceCost,
     this.servicesRevenue = 0,
     this.servicesCost = 0,
+    this.productRevenue = 0,
+    this.productCost = 0,
     this.creditInterest = 0,
     this.creditDrawn = 0,
     this.creditUsedAfter = 0,
@@ -227,7 +231,14 @@ class WeekReport {
   });
 
   int get net =>
-      revenue + servicesRevenue - salaries - inferenceCost - servicesCost - creditInterest;
+      revenue +
+      servicesRevenue +
+      productRevenue -
+      salaries -
+      inferenceCost -
+      servicesCost -
+      productCost -
+      creditInterest;
 
   /// مفلس فعلا فقط بعد نفاد النقد ونفاد الائتمان معا: إن غطى
   /// الائتمان العجز عاد النقد إلى صفر ولم يعد مفلسا.
@@ -261,6 +272,7 @@ class ManagementState {
   ModelJob? activeModelJob;
   List<String> completedModels;
   int inferenceSaving;
+  List<String> launchedProducts;
 
   ManagementState({
     this.week = 1,
@@ -287,6 +299,7 @@ class ManagementState {
     this.activeModelJob,
     List<String>? completedModels,
     this.inferenceSaving = 0,
+    List<String>? launchedProducts,
   })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1),
@@ -295,7 +308,8 @@ class ManagementState {
             ],
         services = services ?? [],
         completedResearch = completedResearch ?? [],
-        completedModels = completedModels ?? [];
+        completedModels = completedModels ?? [],
+        launchedProducts = launchedProducts ?? [];
 
   /// كتالوج مشاريع البحث الأصلي: أربعة اتجاهات من عصر النماذج
   /// الحدودية والوكلاء الحالي، لا من عصر قديم. كل اتجاه له
@@ -440,6 +454,70 @@ class ManagementState {
     final def = modelCatalog.firstWhere((d) => d.id == job.id);
     return 'اكتملت وظيفة النموذج "${job.name}": ${def.effect}';
   }
+
+  /// كتالوج المنتجات الأصلي: ثلاثة منتجات على نموذجك،
+  /// بثمن إطلاق مقدم وإيراد أسبوعي وتكلفة صيانة أسبوعية
+  /// ونمو مستخدمين أسبوعي مختلف، بلا منتج مهيمن واحد:
+  /// الواجهة البرمجية أعلى صافي أسبوعي لكن نموها الأبطأ،
+  /// ومساعد البرمجة أعلى نمو لكن صافيها الأدنى وثمنها
+  /// الأعلى، وروبوت المحادثة أرخص دخول بصافي ونمو متوسطين.
+  static const List<({String id, String name, String description, int cost, int revenue, int maintenance, int growth})>
+      productCatalog = [
+    (
+      id: 'chatbot',
+      name: 'روبوت محادثة',
+      description: 'محادثة عامة للمستخدمين على نموذجك الرئيسي.',
+      cost: 9000,
+      revenue: 600,
+      maintenance: 200,
+      growth: 3,
+    ),
+    (
+      id: 'api',
+      name: 'واجهة برمجية للمطورين',
+      description: 'وصول مدفوع للمطورين إلى نموذجك عبر واجهة.',
+      cost: 11000,
+      revenue: 900,
+      maintenance: 300,
+      growth: 2,
+    ),
+    (
+      id: 'coding',
+      name: 'مساعد برمجة',
+      description: 'مساعد يكتب ويراجع الكود داخل بيئات المطورين.',
+      cost: 13000,
+      revenue: 800,
+      maintenance: 400,
+      growth: 5,
+    ),
+  ];
+
+  /// إطلاق منتج: ثمن مقدم، ولا إطلاق مكرر لمنتج مطلق
+  /// من قبل، ولا إطلاق بلا نقد كاف. المنتج يبقى مطلقا
+  /// ويدر إيراده ويكلف صيانته كل أسبوع بعد إطلاقه.
+  bool launchProduct(String id) {
+    if (launchedProducts.contains(id)) return false;
+    final def = productCatalog.firstWhere((d) => d.id == id);
+    if (cash < def.cost) return false;
+    cash -= def.cost;
+    launchedProducts.add(id);
+    return true;
+  }
+
+  int get productsRevenue => launchedProducts.fold(
+      0,
+      (a, id) =>
+          a +
+          productCatalog.firstWhere((d) => d.id == id).revenue);
+  int get productsCost => launchedProducts.fold(
+      0,
+      (a, id) =>
+          a +
+          productCatalog.firstWhere((d) => d.id == id).maintenance);
+  int get productsGrowth => launchedProducts.fold(
+      0,
+      (a, id) =>
+          a + productCatalog.firstWhere((d) => d.id == id).growth);
 
   /// كتالوج عروض البيانات الأصلي: ثلاثة عروض بثمن وكمية
   /// وجودة وحداثة مختلفة، بلا عرض مهيمن واحد: الرخيص الواسع
@@ -630,9 +708,10 @@ class ManagementState {
   int get teamServiceCount => services.where((s) => s.teamLoad).length;
   int get creditRemaining => creditLimit - creditUsed;
   int get creditInterest => creditUsed ~/ 50;
-  int get totalWeeklyRevenue => weeklyRevenue + servicesRevenue;
+  int get totalWeeklyRevenue =>
+      weeklyRevenue + servicesRevenue + productsRevenue;
   int get totalWeeklyCost =>
-      weeklyCost + servicesCost + creditInterest;
+      weeklyCost + servicesCost + creditInterest + productsCost;
   int get totalWeeklyNet => totalWeeklyRevenue - totalWeeklyCost;
 
   /// المدى مع الائتمان: النقد + الائتمان المتبقي مقسوما على الحرق.
@@ -695,8 +774,17 @@ class ManagementState {
     final inference = weeklyInferenceCost;
     final svcRevenue = servicesRevenue;
     final svcCost = servicesCost;
+    final prodRevenue = productsRevenue;
+    final prodCost = productsCost;
     final interest = creditInterest;
-    cash += revenue + svcRevenue - salaries - inference - svcCost - interest;
+    cash += revenue +
+        svcRevenue +
+        prodRevenue -
+        salaries -
+        inference -
+        svcCost -
+        prodCost -
+        interest;
     var creditDrawn = 0;
     if (cash < 0 && creditRemaining > 0) {
       creditDrawn = -cash < creditRemaining ? -cash : creditRemaining;
@@ -706,7 +794,7 @@ class ManagementState {
 
     // 2) نمو المستخدمين: ينمو مع مستوى النموذج والسمعة، ويتباطأ
     // إن تراجعت السمعة كثيرا. لا ينخفض المستخدمون تحت الصفر.
-    var userDelta = 4 + modelLevel * 2 + reputation ~/ 25 + r.nextInt(7) + userGrowthBoost;
+    var userDelta = 4 + modelLevel * 2 + reputation ~/ 25 + r.nextInt(7) + userGrowthBoost + productsGrowth;
     if (reputation < 30) userDelta -= 6;
     users = _clampInt(users + userDelta, 0, 1000000);
 
@@ -853,6 +941,8 @@ class ManagementState {
       'إيراد الأسبوع: $revenue، رواتب: $salaries، استدلال: $inference، صافي: ${revenue - salaries - inference}.',
       if (svcRevenue > 0 || svcCost > 0)
         'الخدمات: إيراد $svcRevenue، تكلفة $svcCost، صافي ${svcRevenue - svcCost}.',
+      if (prodRevenue > 0 || prodCost > 0)
+        'المنتجات: إيراد $prodRevenue، صيانة $prodCost، صافي ${prodRevenue - prodCost}.',
       if (interest > 0) 'فائدة الائتمان: $interest (مستخدم: $creditUsed).',
       if (creditDrawn > 0)
         'سُحب من الائتمان: $creditDrawn لتغطية العجز (متبق: $creditRemaining).',
@@ -879,6 +969,8 @@ class ManagementState {
       inferenceCost: inference,
       servicesRevenue: svcRevenue,
       servicesCost: svcCost,
+      productRevenue: prodRevenue,
+      productCost: prodCost,
       creditInterest: interest,
       creditDrawn: creditDrawn,
       creditUsedAfter: creditUsed,
@@ -925,6 +1017,7 @@ class ManagementState {
         'activeModelJob': activeModelJob?.toJson(),
         'completedModels': completedModels,
         'inferenceSaving': inferenceSaving,
+        'launchedProducts': launchedProducts,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -967,5 +1060,8 @@ class ManagementState {
             ?.map((e) => e as String)
             .toList(),
         inferenceSaving: (j['inferenceSaving'] as num?)?.toInt() ?? 0,
+        launchedProducts: (j['launchedProducts'] as List?)
+            ?.map((e) => e as String)
+            .toList(),
       );
 }
