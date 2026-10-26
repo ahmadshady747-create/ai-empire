@@ -308,7 +308,40 @@ class _ManagementScreenState extends State<ManagementScreen>
                   _row('المتاحة', '${s.computeAvailable}'),
                   _row('المحجوزة', '${s.computeReserved}'),
                   const Text(
-                      'الحوسبة المحجوزة تُستهلك في أسبوعها وتسرّع التدريب. حجز GPU يأتي في جولة الحوسبة.'),
+                      'المحجوزة تُستهلك في أسبوعها: 20 وحدة فأكثر تسرّع التدريب، لكن حجز 60 وحدة فأكثر يجهد الموثوقية ويبطئه 4 نقاط. الخدمات تأكل من المتاح كل أسبوع.'),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: (s.cash >= 4000 && s.computeAvailable < 200)
+                        ? () {
+                            setState(() {
+                              s.buyCompute();
+                            });
+                          }
+                        : null,
+                    child: const Text('شراء 25 وحدة (4000)'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: s.computeAvailable >= 20
+                        ? () {
+                            setState(() {
+                              s.reserveCompute(20);
+                            });
+                          }
+                        : null,
+                    child: const Text('حجز 20 وحدة للتدريب'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: s.computeAvailable >= 40
+                        ? () {
+                            setState(() {
+                              s.reserveCompute(40);
+                            });
+                          }
+                        : null,
+                    child: const Text('حجز 40 وحدة للتدريب'),
+                  ),
                 ]),
                 _panel([
                   const Text('النماذج',

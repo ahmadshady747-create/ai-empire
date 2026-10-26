@@ -273,6 +273,55 @@ void main() {
     expect(restored.dataFreshness, s.dataFreshness);
     expect(restored.cash, s.cash);
   });
+
+  test('شراء الحوسبة يزيد المتاح بثمن، ويرفض فوق السقف وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.buyCompute(), isTrue);
+    expect(s.computeAvailable, 125);
+    expect(s.cash, 150000 - 4000);
+    final capped = ManagementState(computeAvailable: 200);
+    expect(capped.buyCompute(), isFalse);
+    expect(capped.cash, 150000);
+    final poor = ManagementState(cash: 3000);
+    expect(poor.buyCompute(), isFalse);
+    expect(poor.computeAvailable, 100);
+  });
+
+  test('حجز الحوسبة ينقل من المتاح إلى المحجوز ويرفض الزائد والصفر', () {
+    final s = ManagementState();
+    expect(s.reserveCompute(20), isTrue);
+    expect(s.computeAvailable, 80);
+    expect(s.computeReserved, 40);
+    expect(s.reserveCompute(200), isFalse);
+    expect(s.reserveCompute(0), isFalse);
+    expect(s.reserveCompute(-5), isFalse);
+    expect(s.computeAvailable, 80);
+    expect(s.computeReserved, 40);
+  });
+
+  test('المحجوز 20 فأكثر يسرّع التدريب، والحجز الثقيل 60 يبطئه بالإجهاد', () {
+    final reserved = ManagementState(trainingProgress: 0);
+    reserved.advanceWeek(random: Random(5));
+    expect(reserved.trainingProgress, 12);
+    final none = ManagementState(trainingProgress: 0, computeReserved: 0);
+    none.advanceWeek(random: Random(5));
+    expect(none.trainingProgress, 4);
+    final heavy = ManagementState(trainingProgress: 0, computeReserved: 60);
+    final report = heavy.advanceWeek(random: Random(5));
+    expect(heavy.trainingProgress, 8);
+    expect(
+        report.lines.any((l) => l.contains('أجهد الموثوقية')), isTrue);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على الحوسبة بعد الشراء والحجز', () {
+    final s = ManagementState();
+    s.buyCompute();
+    s.reserveCompute(20);
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.computeAvailable, s.computeAvailable);
+    expect(restored.computeReserved, s.computeReserved);
+    expect(restored.cash, s.cash);
+  });
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

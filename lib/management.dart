@@ -391,6 +391,27 @@ class ManagementState {
     return true;
   }
 
+  /// شراء حوسبة: 25 وحدة دائمة مقابل 4000، بسقف 200 وحدة
+  /// متاحة. لا شراء بلا نقد كاف، ولا شراء فوق السقف.
+  bool buyCompute() {
+    if (cash < 4000 || computeAvailable >= 200) return false;
+    cash -= 4000;
+    computeAvailable = _clampInt(computeAvailable + 25, 0, 200);
+    return true;
+  }
+
+  /// حجز حوسبة للتدريب: نقل وحدات من المتاح إلى المحجوز،
+  /// فيُستهلك المحجوز في أسبوعه ويسرّع التدريب. لا حجز
+  /// فوق المتاح، ولا حجز صفر أو سالب. الحجز الثقيل (60
+  /// وحدة فأكثر) يجهد الموثوقية ويبطئ التدريب 4 نقاط
+  /// في أسبوعه، فلا يكون الحجز الأقصى دائما هو الأفضل.
+  bool reserveCompute(int units) {
+    if (units <= 0 || units > computeAvailable) return false;
+    computeAvailable -= units;
+    computeReserved += units;
+    return true;
+  }
+
   /// كتالوج الخدمات الأصلي: خمس خدمات حول النماذج، لا نماذج فقط.
   /// أسماء العملاء خيالية عامة، لا تشير لأي شركة حقيقية.
   static const List<({String id, String name, int revenue, int cost, int compute, bool team, bool big})>
@@ -588,6 +609,11 @@ class ManagementState {
     } else if (dataQuality >= 80) {
       trainingGain += 2;
     }
+    // إجهاد الحوسبة: حجز ثقيل 60 وحدة فأكثر يبطئ التدريب
+    // 4 نقاط في أسبوعه، فيوازن بين تسريع التدريب بالحجز
+    // وبين إجهاد الموثوقية بالحجز المفرط.
+    final overloaded = computeReserved >= 60;
+    if (overloaded) trainingGain -= 4;
     trainingProgress += _clampInt(trainingGain - rentalSlow, 1, 100);
     // الحوسبة المحجوزة تُستهلك في أسبوعها، وتعود متاحة جزئيا
     // في الأسبوع التالي، مطروحا منها ما استهلكته الخدمات.
@@ -694,6 +720,8 @@ class ManagementState {
         'سُحب من الائتمان: $creditDrawn لتغطية العجز (متبق: $creditRemaining).',
       'المستخدمون: $usersBefore → $users.',
       'البحث: $researchBefore → $researchProgress، التدريب: $trainingBefore → $trainingProgress.',
+      if (overloaded)
+        'حجز حوسبة ثقيل (60 وحدة فأكثر) أجهد الموثوقية: التدريب أبطأ 4 نقاط هذا الأسبوع.',
       if (modelLevel != modelBefore)
         'ارتفع مستوى نموذجك من $modelBefore إلى $modelLevel.',
       if (researchCompleted.isNotEmpty) researchCompleted,
