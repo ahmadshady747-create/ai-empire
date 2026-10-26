@@ -635,6 +635,59 @@ void main() {
     expect(old.hireStaff('product_manager'), isTrue);
   });
 
+  test('شراء عقد صيانة يخصم ثمنه ويرفض التكديس وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.buyMaintenance(), isTrue);
+    expect(s.cash, 150000 - 5000);
+    expect(s.maintenanceWeeks, 4);
+    expect(s.buyMaintenance(), isFalse);
+    expect(s.cash, 150000 - 5000);
+    final poor = ManagementState()..cash = 4000;
+    expect(poor.buyMaintenance(), isFalse);
+    expect(poor.cash, 4000);
+    expect(poor.maintenanceWeeks, 0);
+  });
+
+  test('عقد الصيانة يلغي إجهاد الحجز الثقيل مقابل حالة ضابطة', () {
+    final withContract =
+        ManagementState(trainingProgress: 0, computeReserved: 60)
+          ..buyMaintenance();
+    final report = withContract.advanceWeek(random: Random(5));
+    expect(withContract.trainingProgress, 12);
+    expect(withContract.maintenanceWeeks, 3);
+    expect(
+        report.lines
+            .any((l) => l.contains('عقد الصيانة والتبريد امتص')),
+        isTrue);
+    final control = ManagementState(trainingProgress: 0, computeReserved: 60);
+    control.advanceWeek(random: Random(5));
+    expect(control.trainingProgress, 8);
+  });
+
+  test('انتهاء العقد بعد أربعة أسابيع يعود بالإجهاد', () {
+    final s = ManagementState(trainingProgress: 0)..buyMaintenance();
+    for (var i = 0; i < 4; i++) {
+      s.advanceWeek(random: Random(5));
+    }
+    expect(s.maintenanceWeeks, 0);
+    final before = s.trainingProgress;
+    s.computeReserved = 60;
+    final report = s.advanceWeek(random: Random(5));
+    expect(s.trainingProgress, before + 8);
+    expect(report.lines.any((l) => l.contains('أجهد الموثوقية')), isTrue);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على عقد الصيانة وتوافق مع حالة قديمة',
+      () {
+    final s = ManagementState()..buyMaintenance();
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.maintenanceWeeks, 4);
+    expect(restored.cash, 150000 - 5000);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.maintenanceWeeks, 0);
+    expect(old.buyMaintenance(), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

@@ -290,6 +290,11 @@ class ManagementState {
   /// واحدة فقط، وراتبه الأسبوعي يُخصم كل أسبوع بعد تعيينه).
   List<String> hiredStaff;
 
+  /// أسابيع عقد الصيانة والتبريد المتبقية: ما دام أكبر من
+  /// صفر، يمتص العقد إجهاد الحجز الثقيل فلا يبطأ التدريب،
+  /// ثم ينقص أسبوعا كل أسبوع حتى ينتهي ويعود الإجهاد.
+  int maintenanceWeeks;
+
   ManagementState({
     this.week = 1,
     this.cash = 150000,
@@ -318,6 +323,7 @@ class ManagementState {
     List<String>? launchedProducts,
     List<String>? poachedRivals,
     List<String>? hiredStaff,
+    this.maintenanceWeeks = 0,
   })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
@@ -629,6 +635,27 @@ class ManagementState {
     if (units <= 0 || units > computeAvailable) return false;
     computeAvailable -= units;
     computeReserved += units;
+    return true;
+  }
+
+  /// ثمن عقد الصيانة والتبريد المقدم.
+  static const maintenanceCost = 5000;
+
+  /// مدة عقد الصيانة والتبريد بالأسابيع.
+  static const maintenanceDuration = 4;
+
+  /// شراء عقد صيانة وتبريد: 5000 مقدما لأربعة أسابيع،
+  /// يمتص خلالها إجهاد الحجز الثقيل (60 وحدة فأكثر)
+  /// فلا يبطأ التدريب 4 نقاط في أسابيعه. مرفوض بلا
+  /// خصم عند وجود عقد نشط أصلا (لا تكديس)، أو بلا
+  /// نقد كاف. الثمن الحقيقي هو النقد المقدم مقابل
+  /// دفع الحوسبة إلى أقصاها مؤقتا: عقد ينتهي، والإجهاد
+  /// يعود، فلا يصير الحجز الأقصى مجانيا دائما.
+  bool buyMaintenance() {
+    if (maintenanceWeeks > 0) return false;
+    if (cash < maintenanceCost) return false;
+    cash -= maintenanceCost;
+    maintenanceWeeks = maintenanceDuration;
     return true;
   }
 
@@ -962,8 +989,10 @@ class ManagementState {
     // 4 نقاط في أسبوعه، فيوازن بين تسريع التدريب بالحجز
     // وبين إجهاد الموثوقية بالحجز المفرط.
     final overloaded = computeReserved >= 60;
-    if (overloaded) trainingGain -= 4;
+    final maintenanceActive = maintenanceWeeks > 0;
+    if (overloaded && !maintenanceActive) trainingGain -= 4;
     trainingProgress += _clampInt(trainingGain - rentalSlow, 1, 100);
+    if (maintenanceActive) maintenanceWeeks -= 1;
     // الحوسبة المحجوزة تُستهلك في أسبوعها، وتعود متاحة جزئيا
     // في الأسبوع التالي، مطروحا منها ما استهلكته الخدمات.
     computeReserved = 0;
@@ -1086,8 +1115,10 @@ class ManagementState {
         'سُحب من الائتمان: $creditDrawn لتغطية العجز (متبق: $creditRemaining).',
       'المستخدمون: $usersBefore → $users.',
       'البحث: $researchBefore → $researchProgress، التدريب: $trainingBefore → $trainingProgress.',
-      if (overloaded)
+      if (overloaded && !maintenanceActive)
         'حجز حوسبة ثقيل (60 وحدة فأكثر) أجهد الموثوقية: التدريب أبطأ 4 نقاط هذا الأسبوع.',
+      if (overloaded && maintenanceActive)
+        'عقد الصيانة والتبريد امتص إجهاد الحجز الثقيل: التدريب لم يبطأ هذا الأسبوع (بقي $maintenanceWeeks أسبوعا).',
       if (modelLevel != modelBefore)
         'ارتفع مستوى نموذجك من $modelBefore إلى $modelLevel.',
       if (researchCompleted.isNotEmpty) researchCompleted,
@@ -1158,6 +1189,7 @@ class ManagementState {
         'launchedProducts': launchedProducts,
         'poachedRivals': poachedRivals,
         'hiredStaff': hiredStaff,
+        'maintenanceWeeks': maintenanceWeeks,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -1209,5 +1241,6 @@ class ManagementState {
         hiredStaff: (j['hiredStaff'] as List?)
             ?.map((e) => e as String)
             .toList(),
+        maintenanceWeeks: (j['maintenanceWeeks'] as num?)?.toInt() ?? 0,
       );
 }

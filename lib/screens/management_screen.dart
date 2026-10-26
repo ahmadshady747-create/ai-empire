@@ -309,7 +309,10 @@ class _ManagementScreenState extends State<ManagementScreen>
                   _row('المتاحة', '${s.computeAvailable}'),
                   _row('المحجوزة', '${s.computeReserved}'),
                   const Text(
-                      'المحجوزة تُستهلك في أسبوعها: 20 وحدة فأكثر تسرّع التدريب، لكن حجز 60 وحدة فأكثر يجهد الموثوقية ويبطئه 4 نقاط. الخدمات تأكل من المتاح كل أسبوع.'),
+                      'المحجوزة تُستهلك في أسبوعها: 20 وحدة فأكثر تسرّع التدريب، لكن حجز 60 وحدة فأكثر يجهد الموثوقية ويبطئه 4 نقاط — إلا بعقد صيانة وتبريد نشط يمتص الإجهاد لأربعة أسابيع. الخدمات تأكل من المتاح كل أسبوع.'),
+                  if (s.maintenanceWeeks > 0)
+                    _row('عقد صيانة وتبريد نشط',
+                        '${s.maintenanceWeeks} أسبوعا متبقيا'),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: (s.cash >= 4000 && s.computeAvailable < 200)
@@ -342,6 +345,18 @@ class _ManagementScreenState extends State<ManagementScreen>
                           }
                         : null,
                     child: const Text('حجز 40 وحدة للتدريب'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: (s.cash >= 5000 && s.maintenanceWeeks == 0)
+                        ? () {
+                            setState(() {
+                              s.buyMaintenance();
+                            });
+                          }
+                        : null,
+                    child: const Text(
+                        'عقد صيانة وتبريد (5000، 4 أسابيع)'),
                   ),
                 ]),
                 _panel([
