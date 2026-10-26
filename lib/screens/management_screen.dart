@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../management.dart';
 
@@ -6,6 +9,9 @@ import '../management.dart';
 /// ثمانية تبويبات تعرض الموارد الحقيقية، وزر واحد "تقدم أسبوعا"
 /// ينفذ الأسبوع ويعرض تقريره. الأفعال الإدارية التفصيلية (شراء
 /// بيانات، حجز GPU، إطلاق منتج...) تأتي في جولات لاحقة، تبويبا تبويبا.
+/// الحفظ على الجهاز من اللوحة نفسها: كل أسبوع يتقدم يُحفظ
+/// تلقائيا، وزر "حفظ الإدارة" يحفظ يدويا، وعند فتح اللوحة من
+/// جديد تُستأنف الإدارة المحفوظة إن وُجدت، لا تبدأ من الصفر.
 class ManagementScreen extends StatefulWidget {
   const ManagementScreen({super.key});
 
@@ -15,8 +21,11 @@ class ManagementScreen extends StatefulWidget {
 
 class _ManagementScreenState extends State<ManagementScreen>
     with SingleTickerProviderStateMixin {
-  final ManagementState _state = ManagementState();
+  static const _saveKey = 'ai_management_v1';
+
+  ManagementState _state = ManagementState();
   WeekReport? _lastReport;
+  String? _saveStatus;
   late final TabController _tabs;
 
   static const _tabLabels = [
@@ -37,6 +46,37 @@ class _ManagementScreenState extends State<ManagementScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: _tabLabels.length, vsync: this);
+    _loadSaved();
+  }
+
+  /// يستأنف الإدارة المحفوظة على الجهاز إن وُجدت. أي حفظ تالف
+  /// يُتجاهل بهدوء وتبدأ إدارة جديدة، فلا يكسر حفظ قديم اللعب.
+  Future<void> _loadSaved() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_saveKey);
+    if (raw == null) return;
+    try {
+      final restored =
+          ManagementState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      if (!mounted) return;
+      setState(() {
+        _state = restored;
+        _saveStatus =
+            'تم استئناف إدارة محفوظة — الأسبوع ${restored.week}، النقد ${restored.cash}.';
+      });
+    } catch (_) {
+      // حفظ تالف: يُتجاهل وتبدأ إدارة جديدة.
+    }
+  }
+
+  /// يحفظ حالة الإدارة الحالية على الجهاز ويعرض تأكيدا.
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_saveKey, jsonEncode(_state.toJson()));
+    if (!mounted) return;
+    setState(() {
+      _saveStatus = 'تم حفظ الإدارة (الأسبوع ${_state.week}).';
+    });
   }
 
   @override
@@ -49,6 +89,9 @@ class _ManagementScreenState extends State<ManagementScreen>
     setState(() {
       _lastReport = _state.advanceWeek();
     });
+    // كل أسبوع يتقدم يُحفظ تلقائيا، فلا تضيع الإدارة
+    // إن أُغلقت اللعبة دون حفظ يدوي.
+    _save();
   }
 
   Widget _row(String label, String value) => Padding(
@@ -133,6 +176,20 @@ class _ManagementScreenState extends State<ManagementScreen>
                       ),
                       child: const Text('تقدم أسبوعا ⏭️'),
                     ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: _save,
+                      child: const Text('حفظ الإدارة'),
+                    ),
+                    if (_saveStatus != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          _saveStatus!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.green),
+                        ),
+                      ),
                     if (s.isBankrupt)
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
