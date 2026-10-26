@@ -758,6 +758,70 @@ void main() {
     expect(restoredOld.effectiveProductsRevenue, 600);
   });
 
+  test('لا حدث عالمي في الأسابيع السبعة الأولى', () {
+    final s = ManagementState();
+    WeekReport? last;
+    for (var i = 0; i < 7; i++) {
+      last = s.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.lastWorldEvent, '');
+    expect(last?.worldEvent, '');
+    expect(s.week, 8);
+  });
+
+  test('الأسبوع الثامن يطلق أزمة إمداد رقائق وتنقص الحوسبة 20', () {
+    final s = ManagementState();
+    WeekReport? last;
+    for (var i = 0; i < 8; i++) {
+      last = s.advanceWeek(random: _ZeroRandom());
+    }
+    expect(last?.worldEvent, 'أزمة إمداد رقائق');
+    expect(s.lastWorldEvent, 'أزمة إمداد رقائق');
+    expect(
+        last?.lines.any((l) => l.contains('حدث عالمي')), isTrue);
+    // الحوسبة: 100 + 8 تجديدات × 10، ناقص 20 من الأزمة.
+    expect(s.computeAvailable, 160);
+  });
+
+  test('الدورة تدور: طفرة وكلاء في 16 وتشديد في 24 ثم أزمة من جديد في 32', () {
+    final s = ManagementState();
+    for (var i = 0; i < 15; i++) {
+      s.advanceWeek(random: _ZeroRandom());
+    }
+    final usersBefore = s.users;
+    final levelBefore = s.modelLevel;
+    final repBefore = s.reputation;
+    final boostBefore =
+        s.userGrowthBoost + s.effectiveProductsGrowth;
+    final surgeReport = s.advanceWeek(random: _ZeroRandom());
+    expect(surgeReport.worldEvent, 'طفرة طلب على الوكلاء');
+    expect(s.lastWorldEvent, 'طفرة طلب على الوكلاء');
+    var expectedDelta =
+        4 + levelBefore * 2 + repBefore ~/ 25 + boostBefore + 10;
+    if (repBefore < 30) expectedDelta -= 6;
+    expect(s.users, usersBefore + expectedDelta);
+    for (var i = 0; i < 8; i++) {
+      s.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.lastWorldEvent, 'تشديد تنظيمي مؤقت');
+    for (var i = 0; i < 8; i++) {
+      s.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.lastWorldEvent, 'أزمة إمداد رقائق');
+  });
+
+  test('حفظ واسترجاع آخر حدث عالمي وتوافق مع حالة قديمة', () {
+    final s = ManagementState();
+    for (var i = 0; i < 8; i++) {
+      s.advanceWeek(random: _ZeroRandom());
+    }
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.lastWorldEvent, 'أزمة إمداد رقائق');
+    final oldJson = s.toJson()..remove('lastWorldEvent');
+    final restoredOld = ManagementState.fromJson(oldJson);
+    expect(restoredOld.lastWorldEvent, '');
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

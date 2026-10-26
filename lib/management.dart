@@ -204,6 +204,7 @@ class WeekReport {
   final List<String> rivalMoves;
   final String researchCompleted;
   final String modelCompleted;
+  final String worldEvent;
   final List<String> lines;
 
   const WeekReport({
@@ -234,6 +235,7 @@ class WeekReport {
     required this.rivalMoves,
     this.researchCompleted = '',
     this.modelCompleted = '',
+    this.worldEvent = '',
     required this.lines,
   });
 
@@ -413,6 +415,11 @@ class ManagementState {
   /// ثم ينقص أسبوعا كل أسبوع حتى ينتهي ويعود الإجهاد.
   int maintenanceWeeks;
 
+  /// آخر حدث عالمي وقع في اللعبة (اسم الحدث فقط): يُحفظ
+  /// ويُستأنف، ويُعرض في نظرة عامة اللوحة، فتبقى أخبار
+  /// العالم نتيجة مرئية لا خيارا سرديا.
+  String lastWorldEvent;
+
   ManagementState({
     this.week = 1,
     this.cash = 150000,
@@ -443,6 +450,7 @@ class ManagementState {
     List<String>? poachedRivals,
     List<String>? hiredStaff,
     this.maintenanceWeeks = 0,
+    this.lastWorldEvent = '',
   })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
@@ -1053,6 +1061,35 @@ class ManagementState {
   int get bestRivalLevel =>
       rivals.map((r) => r.modelLevel).fold(0, (a, b) => a > b ? a : b);
 
+  /// دورة أحداث العالم الأصلية: ثلاثة سيناريوهات محاكاة
+  /// مستوحاة من اتجاهات عامة في صناعة الذكاء الاصطناعي،
+  /// ليست بيانات رسمية ولا تنبؤات، وبلا أسماء أو شعارات
+  /// شركات حقيقية. يقع حدث واحد كل ثمانية أسابيع
+  /// (الأسبوع 8 ثم 16 ثم 24...) ويدور بين الثلاثة، فلا
+  /// يفاجأ اللاعب بحدث كل أسبوع ولا يبقى العالم ساكنا:
+  /// أزمة الإمداد تأكل الحوسبة، وطفرة الوكلاء ترفع
+  /// المستخدمين (ومعهم تكلفة الاستدلال لاحقا)، والتشديد
+  /// التنظيمي يخفض السمعة. أخبار الأسبوع كنتيجة لإدارتك
+  /// وللعالم معا، لا كخيار سردي يقرر مصيرك.
+  static const List<({String id, String name, String effect})>
+      worldEventCycle = [
+    (
+      id: 'chip_crunch',
+      name: 'أزمة إمداد رقائق',
+      effect: 'حوسبتك المتاحة تنقص 20 وحدة هذا الأسبوع.',
+    ),
+    (
+      id: 'agent_surge',
+      name: 'طفرة طلب على الوكلاء',
+      effect: 'مستخدموك ينمون 10 إضافية هذا الأسبوع.',
+    ),
+    (
+      id: 'regulation',
+      name: 'تشديد تنظيمي مؤقت',
+      effect: 'سمعتك تنقص 3 نقاط هذا الأسبوع.',
+    ),
+  ];
+
   /// تنفيذ أسبوع واحد كامل. يمرّر [random] في الاختبارات لنتائج حتمية.
   WeekReport advanceWeek({Random? random}) {
     final r = random ?? Random();
@@ -1062,6 +1099,17 @@ class ManagementState {
     final trainingBefore = trainingProgress;
     final modelBefore = modelLevel;
     final reputationBefore = reputation;
+
+    // حدث العالم الدوري: يقع كل ثمانية أسابيع ويدور بين
+    // سيناريوهات الدورة الثلاثة، فلا يطال الأسابيع الأولى
+    // ولا يتكرر الحدث نفسه أسبوعا بعد أسبوع.
+    final worldEvent = week % 8 == 0
+        ? worldEventCycle[(week ~/ 8 - 1) % worldEventCycle.length]
+        : null;
+    final worldEventLine = worldEvent == null
+        ? ''
+        : 'حدث عالمي (سيناريو محاكاة، لا تنبؤ): ${worldEvent.name} — ${worldEvent.effect}';
+    if (worldEvent != null) lastWorldEvent = worldEvent.name;
 
     // 1) المالية: إيراد المنتجات + إيراد الخدمات، ثم رواتب
     // وتكلفة استدلال وتكلفة خدمات وفائدة الائتمان (2% أسبوعيا
@@ -1095,6 +1143,10 @@ class ManagementState {
     // 2) نمو المستخدمين: ينمو مع مستوى النموذج والسمعة، ويتباطأ
     // إن تراجعت السمعة كثيرا. لا ينخفض المستخدمون تحت الصفر.
     var userDelta = 4 + modelLevel * 2 + reputation ~/ 25 + r.nextInt(7) + userGrowthBoost + effectiveProductsGrowth;
+    // طفرة الوكلاء: نمو إضافي في أسبوع الحدث نفسه، لكن
+    // المستخدمين الجدد يرفعون تكلفة الاستدلال من الأسبوع
+    // التالي، فلا تكون الطفرة دخلا مجانيا.
+    if (worldEvent?.id == 'agent_surge') userDelta += 10;
     if (reputation < 30) userDelta -= 6;
     users = _clampInt(users + userDelta, 0, 1000000);
 
@@ -1134,6 +1186,11 @@ class ManagementState {
     computeReserved = 0;
     computeAvailable =
         _clampInt(computeAvailable + 10 - servicesCompute, 0, 200);
+    // أزمة الإمداد: تنقص الحوسبة المتاحة بعد تجديد الأسبوع،
+    // فيشعر بها اللاعب فعلا في حجز الأسبوع التالي.
+    if (worldEvent?.id == 'chip_crunch') {
+      computeAvailable = _clampInt(computeAvailable - 20, 0, 200);
+    }
     for (final svc in services) {
       svc.weeksActive += 1;
     }
@@ -1237,6 +1294,11 @@ class ManagementState {
     if (survivors.any((s) => s.id == 'consulting')) {
       reputation = _clampInt(reputation + 1, 0, 100);
     }
+    // التشديد التنظيمي: يخفض السمعة بعد تعديلات الأسبوع،
+    // فيدخل في نمو المستخدمين وترتيب الأسابيع التالية.
+    if (worldEvent?.id == 'regulation') {
+      reputation = _clampInt(reputation - 3, 0, 100);
+    }
 
     week += 1;
     final lines = <String>[
@@ -1261,6 +1323,7 @@ class ManagementState {
         'ارتفع مستوى نموذجك من $modelBefore إلى $modelLevel.',
       if (researchCompleted.isNotEmpty) researchCompleted,
       if (modelCompleted.isNotEmpty) modelCompleted,
+      if (worldEventLine.isNotEmpty) worldEventLine,
       ...rivalMoves,
       for (final c in churned)
         'فقدت عميل خدمة فجأة: $c — إيراده يسقط من الأسبوع التالي.',
@@ -1295,6 +1358,7 @@ class ManagementState {
       rivalMoves: rivalMoves,
       researchCompleted: researchCompleted,
       modelCompleted: modelCompleted,
+      worldEvent: worldEvent?.name ?? '',
       lines: lines,
     );
   }
@@ -1329,6 +1393,7 @@ class ManagementState {
         'poachedRivals': poachedRivals,
         'hiredStaff': hiredStaff,
         'maintenanceWeeks': maintenanceWeeks,
+        'lastWorldEvent': lastWorldEvent,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -1382,5 +1447,6 @@ class ManagementState {
             ?.map((e) => e as String)
             .toList(),
         maintenanceWeeks: (j['maintenanceWeeks'] as num?)?.toInt() ?? 0,
+        lastWorldEvent: (j['lastWorldEvent'] as String?) ?? '',
       );
 }

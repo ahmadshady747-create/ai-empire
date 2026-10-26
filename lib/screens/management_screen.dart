@@ -216,6 +216,14 @@ class _ManagementScreenState extends State<ManagementScreen>
                   _row('الإيراد الأسبوعي', '${s.weeklyRevenue}'),
                   _row('التكلفة الأسبوعية', '${s.weeklyCost}'),
                   _row('صافي الأسبوع', '${s.weeklyNet}'),
+                  if (s.lastWorldEvent.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'آخر حدث عالمي: ${s.lastWorldEvent} — سيناريو محاكاة مستوحى من اتجاهات عامة، ليس بيانات رسمية ولا تنبؤات.',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   const Text('أخبار الأسبوع الأخير:',
                       style: TextStyle(fontWeight: FontWeight.bold)),
