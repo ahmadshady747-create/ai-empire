@@ -688,6 +688,29 @@ void main() {
     expect(old.buyMaintenance(), isTrue);
   });
 
+  test('مكتبة المفاهيم تغطي كل الأنظمة بشرح غير فارغ وبلا تكرار', () {
+    final titles = managementConcepts.map((c) => c.title).toList();
+    expect(titles, containsAll([
+      'البحث',
+      'البيانات',
+      'الحوسبة',
+      'النماذج',
+      'المنتجات',
+      'الخدمات',
+      'المنافسون',
+      'الفريق',
+      'المالية',
+      'البقاء أولا',
+    ]));
+    expect(titles.toSet().length, titles.length);
+    for (final concept in managementConcepts) {
+      expect(concept.body.length, greaterThan(40));
+    }
+    final survival = managementConcepts.last;
+    expect(survival.title, 'البقاء أولا');
+    expect(survival.body.contains('الإفلاس'), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

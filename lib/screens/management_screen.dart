@@ -30,6 +30,7 @@ class _ManagementScreenState extends State<ManagementScreen>
     'منافسون',
     'فريق',
     'مالية',
+    'مفاهيم',
   ];
 
   @override
@@ -599,6 +600,35 @@ class _ManagementScreenState extends State<ManagementScreen>
                         : null,
                     child: const Text('سداد 5000 من الائتمان'),
                   ),
+                ]),
+                _panel([
+                  const Text('مكتبة المفاهيم',
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                      'شرح عربي واضح لكل نظام إداري: ما يفعله، وما ثمنه في '
+                      'الأنظمة الأخرى، ولماذا لا توجد استراتيجية واحدة تفوز '
+                      'دائما. أحداث العالم هنا سيناريوهات محاكاة مستوحاة من '
+                      'اتجاهات عامة، ليست بيانات رسمية ولا تنبؤات.'),
+                  const SizedBox(height: 8),
+                  for (final concept in managementConcepts)
+                    Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(concept.title,
+                                style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text(concept.body),
+                          ],
+                        ),
+                      ),
+                    ),
                 ]),
               ],
             ),
