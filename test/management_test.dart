@@ -585,6 +585,56 @@ void main() {
     expect(old.rivals[1].strategy, 'سرعة');
   });
 
+  test('تعيين باحث يخصم ثمنه ويرفع تسريع البحث ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.hireStaff('research_lead'), isTrue);
+    expect(s.cash, 150000 - 7000);
+    expect(s.researchBoost, 2);
+    expect(s.staffSalaries, 800);
+    expect(s.hireStaff('research_lead'), isFalse);
+    expect(s.cash, 150000 - 7000);
+    final poor = ManagementState()..cash = 1000;
+    expect(poor.hireStaff('research_lead'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.hiredStaff, isEmpty);
+  });
+
+  test('تعيين مهندس بنية يضيف حوسبة ومدير منتجات يرفع نمو المستخدمين', () {
+    final s = ManagementState();
+    expect(s.hireStaff('infra_engineer'), isTrue);
+    expect(s.computeAvailable, 125);
+    expect(s.hireStaff('product_manager'), isTrue);
+    expect(s.userGrowthBoost, 2);
+    expect(s.staffSalaries, 700 + 600);
+    expect(s.cash, 150000 - 6000 - 5000);
+  });
+
+  test('راتب الفريق يُخصم في الأسبوع التالي مقابل حالة ضابطة', () {
+    final hired = ManagementState()..hireStaff('research_lead');
+    hired.cash = 150000; // معادلة الثمن المقدم لعزل أثر الراتب وحده.
+    final control = ManagementState();
+    final hiredReport = hired.advanceWeek(random: _ZeroRandom());
+    final controlReport = control.advanceWeek(random: _ZeroRandom());
+    expect(hiredReport.cashAfter, controlReport.cashAfter - 800);
+    expect(hiredReport.researchAfter, controlReport.researchAfter + 2);
+    expect(hiredReport.lines.any((l) => l.contains('رواتب فريقك المتخصص: 800')), isTrue);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على الفريق وتوافق مع حالة قديمة', () {
+    final s = ManagementState()
+      ..hireStaff('research_lead')
+      ..hireStaff('infra_engineer');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.hiredStaff, ['research_lead', 'infra_engineer']);
+    expect(restored.researchBoost, 2);
+    expect(restored.computeAvailable, 125);
+    expect(restored.staffSalaries, 1500);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.hiredStaff, isEmpty);
+    expect(old.staffSalaries, 0);
+    expect(old.hireStaff('product_manager'), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.

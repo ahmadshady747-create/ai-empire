@@ -28,6 +28,7 @@ class _ManagementScreenState extends State<ManagementScreen>
     'منتجات',
     'خدمات',
     'منافسون',
+    'فريق',
     'مالية',
   ];
 
@@ -500,19 +501,67 @@ class _ManagementScreenState extends State<ManagementScreen>
                       'أسماء خيالية من تأليف اللعبة، لا تشير لأي شركة حقيقية.'),
                 ]),
                 _panel([
+                  const Text('الفريق — توظيف متخصصين',
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold)),
+                  _row('رواتب الفريق الأسبوعية', '${s.staffSalaries}'),
+                  _row('مكافأة البحث الدائمة', '+${s.researchBoost}'),
+                  _row('مكافأة نمو المستخدمين', '+${s.userGrowthBoost}'),
+                  const Text(
+                      'كل دور يُعين مرة واحدة فقط: الثمن يُدفع مقدما، والتأثير دائم، لكن الراتب يُخصم كل أسبوع بعد التعيين — فالتعيين يريحك الآن ويأكل نقدك دائما. لا دور واحد يغني عن بقية الإدارة.'),
+                  const SizedBox(height: 12),
+                  for (final def in ManagementState.staffCatalog)
+                    Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(def.name,
+                                style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold)),
+                            Text(def.description),
+                            Text(
+                                'ثمن التعيين: ${def.cost} — راتب أسبوعي: ${def.salary}'),
+                            Text('عند التعيين: ${def.effect}'),
+                            if (s.hiredStaff.contains(def.id))
+                              const Text('معيّن ✓'),
+                            const SizedBox(height: 8),
+                            if (!s.hiredStaff.contains(def.id))
+                              OutlinedButton(
+                                onPressed: s.cash >= def.cost
+                                    ? () {
+                                        setState(() {
+                                          s.hireStaff(def.id);
+                                        });
+                                      }
+                                    : null,
+                                child: Text(s.cash >= def.cost
+                                    ? 'تعيين'
+                                    : 'نقد غير كاف'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ]),
+                _panel([
                   const Text('المالية',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
                   _row('النقد', '${s.cash}'),
                   _row('المدى النقدي', runway),
                   _row('رواتب الأسبوع', '${s.weeklySalaries}'),
+                  _row('رواتب الفريق المتخصص', '${s.staffSalaries}'),
                   _row('إيراد الأسبوع', '${s.weeklyRevenue}'),
                   _row('تكلفة الاستدلال', '${s.weeklyInferenceCost}'),
                   _row('الائتمان المستخدم', '${s.creditUsed}'),
                   _row('الائتمان المتبقي', '${s.creditRemaining}'),
                   _row('فائدة الائتمان الأسبوعية', '${s.creditInterest}'),
                   const Text(
-                      'الاقتراض يسحب من الائتمان إلى النقد الآن لكنه يرفع الفائدة 2% أسبوعيا على المستخدم؛ والسداد يخفضها. التوظيف يأتي في جولة لاحقة.'),
+                      'الاقتراض يسحب من الائتمان إلى النقد الآن لكنه يرفع الفائدة 2% أسبوعيا على المستخدم؛ والسداد يخفضها. رواتب فريقك المتخصص تُخصم كل أسبوع مع الرواتب في تقرير الأسبوع.'),
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: s.creditRemaining >= 10000

@@ -286,6 +286,10 @@ class ManagementState {
   /// مصدر تسريع بلا سقف.
   List<String> poachedRivals;
 
+  /// معرفات المتخصصين المعيّنين في فريقك (كل دور مرة
+  /// واحدة فقط، وراتبه الأسبوعي يُخصم كل أسبوع بعد تعيينه).
+  List<String> hiredStaff;
+
   ManagementState({
     this.week = 1,
     this.cash = 150000,
@@ -313,6 +317,7 @@ class ManagementState {
     this.inferenceSaving = 0,
     List<String>? launchedProducts,
     List<String>? poachedRivals,
+    List<String>? hiredStaff,
   })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
@@ -323,7 +328,8 @@ class ManagementState {
         completedResearch = completedResearch ?? [],
         completedModels = completedModels ?? [],
         launchedProducts = launchedProducts ?? [],
-        poachedRivals = poachedRivals ?? [];
+        poachedRivals = poachedRivals ?? [],
+        hiredStaff = hiredStaff ?? [];
 
   /// كتالوج مشاريع البحث الأصلي: أربعة اتجاهات من عصر النماذج
   /// الحدودية والوكلاء الحالي، لا من عصر قديم. كل اتجاه له
@@ -769,6 +775,66 @@ class ManagementState {
     return true;
   }
 
+  /// كتالوج المتخصصين الأصلي: ثلاثة أدوار بثمن تعيين
+  /// مقدم وراتب أسبوعي دائم وتأثير دائم مختلف، بلا دور
+  /// مهيمن واحد: الباحث يسرّع البحث لكن راتبه الأعلى،
+  /// ومهندس البنية يضيف حوسبة مرة واحدة دون تسريع
+  /// متكرر، ومدير المنتجات يسرّع نمو المستخدمين دون
+  /// رفع مستوى النموذج. الراتب الدائم هو الثمن الحقيقي:
+  /// التعيين يريحك الآن ويأكل نقدك كل أسبوع بعده.
+  static const List<({String id, String name, String description, int cost, int salary, String effect})>
+      staffCatalog = [
+    (
+      id: 'research_lead',
+      name: 'باحث نماذج أول',
+      description: 'يقود تجارب المعمارية وقوانين التوسع.',
+      cost: 7000,
+      salary: 800,
+      effect: 'بحثك الأسبوعي أسرع بنقطتين دائما.',
+    ),
+    (
+      id: 'infra_engineer',
+      name: 'مهندس بنية وحوسبة',
+      description: 'يبني ويصون بنيتك الحوسبية.',
+      cost: 6000,
+      salary: 700,
+      effect: 'حوسبتك المتاحة تزيد 25 وحدة عند التعيين.',
+    ),
+    (
+      id: 'product_manager',
+      name: 'مدير منتجات',
+      description: 'ينظم المنتجات ويتابع انتشارها.',
+      cost: 5000,
+      salary: 600,
+      effect: 'نمو مستخدميك الأسبوعي أسرع بنقطتين دائما.',
+    ),
+  ];
+
+  /// تعيين متخصص: كل دور مرة واحدة فقط، ولا تعيين بلا
+  /// نقد كاف للثمن المقدم. التأثير يُطبق مرة واحدة عند
+  /// التعيين، والراتب يبدأ من الأسبوع التالي.
+  bool hireStaff(String id) {
+    if (hiredStaff.contains(id)) return false;
+    final def = staffCatalog.firstWhere((d) => d.id == id);
+    if (cash < def.cost) return false;
+    cash -= def.cost;
+    hiredStaff.add(id);
+    switch (id) {
+      case 'research_lead':
+        researchBoost += 2;
+      case 'infra_engineer':
+        computeAvailable = _clampInt(computeAvailable + 25, 0, 200);
+      case 'product_manager':
+        userGrowthBoost += 2;
+    }
+    return true;
+  }
+
+  int get staffSalaries => hiredStaff.fold(
+      0,
+      (a, id) =>
+          a + staffCatalog.firstWhere((d) => d.id == id).salary);
+
   int get servicesRevenue =>
       services.fold(0, (a, s) => a + s.weeklyRevenue);
   int get servicesCost => services.fold(0, (a, s) => a + s.weeklyCost);
@@ -780,7 +846,7 @@ class ManagementState {
   int get totalWeeklyRevenue =>
       weeklyRevenue + servicesRevenue + productsRevenue;
   int get totalWeeklyCost =>
-      weeklyCost + servicesCost + creditInterest + productsCost;
+      weeklyCost + servicesCost + creditInterest + productsCost + staffSalaries;
   int get totalWeeklyNet => totalWeeklyRevenue - totalWeeklyCost;
 
   /// المدى مع الائتمان: النقد + الائتمان المتبقي مقسوما على الحرق.
@@ -841,6 +907,7 @@ class ManagementState {
     final revenue = weeklyRevenue;
     final salaries = weeklySalaries;
     final inference = weeklyInferenceCost;
+    final staffCost = staffSalaries;
     final svcRevenue = servicesRevenue;
     final svcCost = servicesCost;
     final prodRevenue = productsRevenue;
@@ -850,6 +917,7 @@ class ManagementState {
         svcRevenue +
         prodRevenue -
         salaries -
+        staffCost -
         inference -
         svcCost -
         prodCost -
@@ -1008,6 +1076,7 @@ class ManagementState {
     week += 1;
     final lines = <String>[
       'إيراد الأسبوع: $revenue، رواتب: $salaries، استدلال: $inference، صافي: ${revenue - salaries - inference}.',
+      if (staffCost > 0) 'رواتب فريقك المتخصص: $staffCost.',
       if (svcRevenue > 0 || svcCost > 0)
         'الخدمات: إيراد $svcRevenue، تكلفة $svcCost، صافي ${svcRevenue - svcCost}.',
       if (prodRevenue > 0 || prodCost > 0)
@@ -1088,6 +1157,7 @@ class ManagementState {
         'inferenceSaving': inferenceSaving,
         'launchedProducts': launchedProducts,
         'poachedRivals': poachedRivals,
+        'hiredStaff': hiredStaff,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -1134,6 +1204,9 @@ class ManagementState {
             ?.map((e) => e as String)
             .toList(),
         poachedRivals: (j['poachedRivals'] as List?)
+            ?.map((e) => e as String)
+            .toList(),
+        hiredStaff: (j['hiredStaff'] as List?)
             ?.map((e) => e as String)
             .toList(),
       );
