@@ -1051,6 +1051,62 @@ void main() {
     expect(old.leadershipVictory, isFalse);
   });
 
+  test('بدء مشروع كفاءة الحوسبة يخصم ثمنه ويرفض مشروعا ثانيا أو بلا نقد', () {
+    final s = ManagementState();
+    final cashBefore = s.cash;
+    expect(s.startResearch('compute_efficiency'), isTrue);
+    expect(s.cash, cashBefore - 7000);
+    expect(s.activeResearch?.id, 'compute_efficiency');
+    expect(s.startResearch('architecture'), isFalse);
+    expect(s.cash, cashBefore - 7000);
+    final poor = ManagementState(cash: 100);
+    expect(poor.startResearch('compute_efficiency'), isFalse);
+    expect(poor.activeResearch, isNull);
+  });
+
+  test('مشروع كفاءة الحوسبة يكتمل بعد 5 أسابيع ويزيد الحوسبة 20', () {
+    final s = ManagementState();
+    expect(s.startResearch('compute_efficiency'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 5; i++) {
+      last = s.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('compute_efficiency'));
+    expect(last?.researchCompleted, contains('كفاءة'));
+    expect(s.startResearch('compute_efficiency'), isFalse);
+    // الحوسبة المتاحة: تجديد 10 أسبوعيا من 100 إلى 150 بعد
+    // خمسة أسابيع، ثم +20 عند الاكتمال = 170، مقابل 150
+    // لحالة ضابطة بنفس العشوائية الصفرية.
+    final control = ManagementState();
+    for (var i = 0; i < 5; i++) {
+      control.advanceWeek(random: _ZeroRandom());
+    }
+    expect(control.computeAvailable, 150);
+    expect(s.computeAvailable, 170);
+  });
+
+  test('أثر كفاءة الحوسبة لا يرفع المتاح فوق سقف 200', () {
+    final s = ManagementState(computeAvailable: 195);
+    expect(s.startResearch('compute_efficiency'), isTrue);
+    for (var i = 0; i < 5; i++) {
+      s.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.completedResearch, contains('compute_efficiency'));
+    expect(s.computeAvailable, 200);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على مشروع كفاءة الحوسبة', () {
+    final s = ManagementState();
+    s.startResearch('compute_efficiency');
+    s.advanceWeek(random: _ZeroRandom());
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeResearch?.id, 'compute_efficiency');
+    expect(restored.activeResearch?.weeksDone, 1);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.startResearch('compute_efficiency'), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
