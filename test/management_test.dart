@@ -952,6 +952,43 @@ void main() {
     expect(restored.cash, s.cash);
   });
 
+  test('تعيين خبير مواءمة يخصم ثمنه ويرفع السمعة ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.hireStaff('safety_lead'), isTrue);
+    expect(s.cash, 150000 - 8000);
+    expect(s.reputation, 60);
+    expect(s.staffSalaries, 900);
+    expect(s.hireStaff('safety_lead'), isFalse);
+    expect(s.cash, 150000 - 8000);
+    expect(s.reputation, 60);
+    final poor = ManagementState()..cash = 1000;
+    expect(poor.hireStaff('safety_lead'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.reputation, 50);
+  });
+
+  test('خبير المواءمة لا يرفع السمعة فوق 100 وراتبه يُخصم في الأسبوع التالي', () {
+    final s = ManagementState()..reputation = 95;
+    expect(s.hireStaff('safety_lead'), isTrue);
+    expect(s.reputation, 100);
+    final hired = ManagementState()..hireStaff('safety_lead');
+    final control = ManagementState();
+    final hiredReport = hired.advanceWeek(random: _ZeroRandom());
+    final controlReport = control.advanceWeek(random: _ZeroRandom());
+    expect(hiredReport.cashAfter, controlReport.cashAfter - 8000 - 900);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على خبير المواءمة وتوافق مع حالة قديمة', () {
+    final s = ManagementState()..hireStaff('safety_lead');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.hiredStaff, ['safety_lead']);
+    expect(restored.reputation, 60);
+    expect(restored.staffSalaries, 900);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.hireStaff('safety_lead'), isTrue);
+    expect(old.reputation, 60);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
