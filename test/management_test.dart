@@ -1309,6 +1309,49 @@ void main() {
     expect(old.startService('safety_audit'), isTrue);
   });
 
+  test('بدء مشروع فهم متعدد الوسائط يخصم ثمنه ويرفض مشروعا ثانيا أو بلا نقد', () {
+    final s = ManagementState();
+    final cashBefore = s.cash;
+    expect(s.startResearch('multimodal'), isTrue);
+    expect(s.cash, cashBefore - 7500);
+    expect(s.activeResearch?.id, 'multimodal');
+    expect(s.startResearch('architecture'), isFalse);
+    expect(s.cash, cashBefore - 7500);
+    final poor = ManagementState(cash: 100);
+    expect(poor.startResearch('multimodal'), isFalse);
+    expect(poor.activeResearch, isNull);
+  });
+
+  test('مشروع فهم متعدد الوسائط يكتمل بعد 6 أسابيع: سمعة +5 ونمو +2', () {
+    final s = ManagementState();
+    expect(s.startResearch('multimodal'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 6; i++) {
+      last = s.advanceWeek(random: _NeverRandom());
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('multimodal'));
+    expect(last?.researchCompleted, contains('متعدد الوسائط'));
+    expect(s.startResearch('multimodal'), isFalse);
+    final control = ManagementState();
+    for (var i = 0; i < 6; i++) {
+      control.advanceWeek(random: _NeverRandom());
+    }
+    expect(s.reputation, control.reputation + 5);
+    expect(s.userGrowthBoost, control.userGrowthBoost + 2);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على مشروع فهم متعدد الوسائط', () {
+    final s = ManagementState();
+    s.startResearch('multimodal');
+    s.advanceWeek(random: _NeverRandom());
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeResearch?.id, 'multimodal');
+    expect(restored.activeResearch?.weeksDone, 1);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.startResearch('multimodal'), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.

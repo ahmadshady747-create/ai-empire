@@ -485,6 +485,9 @@ class ManagementState {
   /// مهندس البنية، فالاختيار بين السرعة والكلفة قرار توازن.
   /// السادس (توليد بيانات تركيبية) يوسّع مخزون البيانات دون
   /// شراء، لكنه لا يرفع جودتها، فيبقى التنظيف ضروريا بعده.
+  /// السابع (فهم متعدد الوسائط) يجمع سمعة ونموا معا، لكنه
+  /// أضعف من المتخصصين في كل جانب (مواءمة +10، وكلاء +5)
+  /// وأغلاهم ثمنا وأطولهم مدة، فلا يهيمن على أي منهما.
   static const List<({String id, String name, String description, int cost, int weeks, String effect})>
       researchCatalog = [
     (
@@ -535,6 +538,14 @@ class ManagementState {
       weeks: 5,
       effect: 'كمية بياناتك تزيد 300 عند الاكتمال، دون تغيير الجودة.',
     ),
+    (
+      id: 'multimodal',
+      name: 'فهم متعدد الوسائط',
+      description: 'نموذج يفهم النص والصورة والصوت معا، فيفتح استخدامات جديدة.',
+      cost: 7500,
+      weeks: 6,
+      effect: 'سمعتك ترتفع 5 نقاط ونمو مستخدميك أسرع بنقطتين دائما عند الاكتمال.',
+    ),
   ];
 
   /// بدء مشروع بحث: مشروع واحد نشط فقط، ولا إعادة لمشروع
@@ -571,6 +582,9 @@ class ManagementState {
         computeAvailable = _clampInt(computeAvailable + 20, 0, 200);
       case 'synthetic_data':
         dataQuantity += 300;
+      case 'multimodal':
+        reputation = _clampInt(reputation + 5, 0, 100);
+        userGrowthBoost += 2;
     }
     final def =
         researchCatalog.firstWhere((d) => d.id == project.id);
