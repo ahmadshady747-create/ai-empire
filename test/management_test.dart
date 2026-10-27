@@ -1341,6 +1341,59 @@ void main() {
     expect(s.userGrowthBoost, control.userGrowthBoost + 2);
   });
 
+  test('إطلاق تلخيص الاجتماعات يخصم ثمنه ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.launchProduct('meetings'), isTrue);
+    expect(s.cash, 150000 - 14000);
+    expect(s.launchedProducts, contains('meetings'));
+    expect(s.launchProduct('meetings'), isFalse);
+    expect(s.cash, 150000 - 14000);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.launchProduct('meetings'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.launchedProducts, isEmpty);
+  });
+
+  test('تلخيص الاجتماعات يدر إيراده ويكلف صيانته وينمو بالمستخدمين', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.launchProduct('meetings'), isTrue);
+    final report = s.advanceWeek(random: _ZeroRandom());
+    control.advanceWeek(random: _ZeroRandom());
+    expect(s.productsRevenue, 950);
+    expect(s.productsCost, 500);
+    expect(s.productsGrowth, 4);
+    expect(report.productRevenue, 950);
+    expect(report.productCost, 500);
+    expect(s.users, control.users + 4);
+    expect(s.cash, control.cash - 14000 + 450);
+    expect(report.lines.any((l) => l.contains('المنتجات:')), isTrue);
+  });
+
+  test('تلخيص الاجتماعات صافي متوسط بلا هيمنة وحفظه واسترجاعه', () {
+    final meetingsDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'meetings');
+    final apiDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'api');
+    final agentsDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'agents');
+    expect(meetingsDef.revenue - meetingsDef.maintenance, 450);
+    expect(meetingsDef.revenue - meetingsDef.maintenance,
+        lessThan(apiDef.revenue - apiDef.maintenance));
+    expect(meetingsDef.growth, agentsDef.growth);
+    expect(meetingsDef.revenue - meetingsDef.maintenance,
+        lessThan(agentsDef.revenue - agentsDef.maintenance));
+    final s = ManagementState();
+    s.launchProduct('meetings');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.launchedProducts, contains('meetings'));
+    expect(restored.productsRevenue, 950);
+    expect(restored.productsCost, 500);
+    final oldJson = s.toJson()..remove('launchedProducts');
+    final restoredOld = ManagementState.fromJson(oldJson);
+    expect(restoredOld.launchedProducts, isEmpty);
+  });
+
   test('الحفظ والاسترجاع يحافظان على مشروع فهم متعدد الوسائط', () {
     final s = ManagementState();
     s.startResearch('multimodal');
