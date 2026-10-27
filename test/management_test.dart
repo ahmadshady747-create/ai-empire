@@ -1503,6 +1503,66 @@ void main() {
     expect(restoredOld.launchedProducts, isEmpty);
   });
 
+  test('بدء التدريب الموزّع يخصم ثمنه ويرفض مشروعا ثانيا أو مكررا أو بلا نقد', () {
+    final s = ManagementState();
+    final cashBefore = s.cash;
+    expect(s.startResearch('distributed_training'), isTrue);
+    expect(s.cash, cashBefore - 8500);
+    expect(s.activeResearch?.id, 'distributed_training');
+    expect(s.startResearch('scaling'), isFalse);
+    expect(s.cash, cashBefore - 8500);
+    final poor = ManagementState(cash: 100);
+    expect(poor.startResearch('distributed_training'), isFalse);
+    expect(poor.activeResearch, isNull);
+  });
+
+  test('التدريب الموزّع يكتمل بعد 5 أسابيع ويرفع البحث نقطة والتدريب نقطتين', () {
+    final s = ManagementState();
+    expect(s.startResearch('distributed_training'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 5; i++) {
+      last = s.advanceWeek(random: Random(11));
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('distributed_training'));
+    expect(last?.researchCompleted, contains('تدريب موزّع'));
+    expect(s.researchBoost, 1);
+    expect(s.trainingBoost, 2);
+    expect(s.startResearch('distributed_training'), isFalse);
+  });
+
+  test('التدريب الموزّع أضعف من قائدي المحورين فلا يهيمن على أي منهما', () {
+    final def = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'distributed_training');
+    final archDef = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'architecture');
+    final scalingDef = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'scaling');
+    expect(def.cost, greaterThan(archDef.cost));
+    expect(def.cost, greaterThan(scalingDef.cost));
+    final s = ManagementState();
+    s.startResearch('distributed_training');
+    for (var i = 0; i < 5; i++) {
+      s.advanceWeek(random: Random(11));
+    }
+    expect(s.researchBoost, lessThan(2));
+    expect(s.trainingBoost, lessThan(4));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على التدريب الموزّع النشط ومكافأتيه', () {
+    final s = ManagementState();
+    s.startResearch('distributed_training');
+    s.advanceWeek(random: Random(6));
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeResearch?.id, 'distributed_training');
+    expect(restored.activeResearch?.weeksDone, 1);
+    for (var i = 0; i < 4; i++) {
+      restored.advanceWeek(random: Random(6));
+    }
+    expect(restored.researchBoost, 1);
+    expect(restored.trainingBoost, 2);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.

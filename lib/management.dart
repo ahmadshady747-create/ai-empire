@@ -554,6 +554,14 @@ class ManagementState {
       weeks: 5,
       effect: 'سمعتك ترتفع 3 نقاط ونمو مستخدميك أسرع بنقطتين دائما عند الاكتمال.',
     ),
+    (
+      id: 'distributed_training',
+      name: 'تدريب موزّع',
+      description: 'تدريب موزّع على مواقع حوسبة متعددة ينسّق جهود البحث والتدريب معا.',
+      cost: 8500,
+      weeks: 5,
+      effect: 'بحثك الأسبوعي أسرع بنقطة وتدريبك أسرع بنقطتين دائما عند الاكتمال.',
+    ),
   ];
 
   /// بدء مشروع بحث: مشروع واحد نشط فقط، ولا إعادة لمشروع
@@ -596,6 +604,9 @@ class ManagementState {
       case 'agent_memory':
         reputation = _clampInt(reputation + 3, 0, 100);
         userGrowthBoost += 2;
+      case 'distributed_training':
+        researchBoost += 1;
+        trainingBoost += 2;
     }
     final def =
         researchCatalog.firstWhere((d) => d.id == project.id);
