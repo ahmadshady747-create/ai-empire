@@ -546,6 +546,14 @@ class ManagementState {
       weeks: 6,
       effect: 'سمعتك ترتفع 5 نقاط ونمو مستخدميك أسرع بنقطتين دائما عند الاكتمال.',
     ),
+    (
+      id: 'agent_memory',
+      name: 'ذاكرة وكلاء طويلة',
+      description: 'وكلاء يتذكرون سياق المستخدم عبر الجلسات، فيخدمونه باستمرارية أفضل.',
+      cost: 6500,
+      weeks: 5,
+      effect: 'سمعتك ترتفع 3 نقاط ونمو مستخدميك أسرع بنقطتين دائما عند الاكتمال.',
+    ),
   ];
 
   /// بدء مشروع بحث: مشروع واحد نشط فقط، ولا إعادة لمشروع
@@ -584,6 +592,9 @@ class ManagementState {
         dataQuantity += 300;
       case 'multimodal':
         reputation = _clampInt(reputation + 5, 0, 100);
+        userGrowthBoost += 2;
+      case 'agent_memory':
+        reputation = _clampInt(reputation + 3, 0, 100);
         userGrowthBoost += 2;
     }
     final def =

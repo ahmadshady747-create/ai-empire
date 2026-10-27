@@ -1405,6 +1405,49 @@ void main() {
     expect(old.startResearch('multimodal'), isTrue);
   });
 
+  test('بدء مشروع ذاكرة وكلاء طويلة يخصم ثمنه ويرفض مشروعا ثانيا أو بلا نقد', () {
+    final s = ManagementState();
+    final cashBefore = s.cash;
+    expect(s.startResearch('agent_memory'), isTrue);
+    expect(s.cash, cashBefore - 6500);
+    expect(s.activeResearch?.id, 'agent_memory');
+    expect(s.startResearch('architecture'), isFalse);
+    expect(s.cash, cashBefore - 6500);
+    final poor = ManagementState(cash: 100);
+    expect(poor.startResearch('agent_memory'), isFalse);
+    expect(poor.activeResearch, isNull);
+  });
+
+  test('مشروع ذاكرة وكلاء طويلة يكتمل بعد 5 أسابيع: سمعة +3 ونمو +2', () {
+    final s = ManagementState();
+    expect(s.startResearch('agent_memory'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 5; i++) {
+      last = s.advanceWeek(random: _NeverRandom());
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('agent_memory'));
+    expect(last?.researchCompleted, contains('ذاكرة'));
+    expect(s.startResearch('agent_memory'), isFalse);
+    final control = ManagementState();
+    for (var i = 0; i < 5; i++) {
+      control.advanceWeek(random: _NeverRandom());
+    }
+    expect(s.reputation, control.reputation + 3);
+    expect(s.userGrowthBoost, control.userGrowthBoost + 2);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على مشروع ذاكرة وكلاء طويلة', () {
+    final s = ManagementState();
+    s.startResearch('agent_memory');
+    s.advanceWeek(random: _NeverRandom());
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeResearch?.id, 'agent_memory');
+    expect(restored.activeResearch?.weeksDone, 1);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.startResearch('agent_memory'), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
