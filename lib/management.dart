@@ -693,7 +693,9 @@ class ManagementState {
   /// صافي متوسط بثمن متوسط ونمو متوسط، فلا يهيمن
   /// على أي جانب أيضا، وتلخيص الاجتماعات صافي متوسط
   /// بثمن مرتفع ونمو يساوي منصة الوكلاء لكن صافيه
-  /// أدنى منها، فلا يهيمن على أي جانب أيضا.
+  /// أدنى منها، فلا يهيمن على أي جانب أيضا، والثامن
+  /// (ترجمة فورية) نمو يساوي منصة الوكلاء لكن صافيه
+  /// أدنى منها وثمنه أعلى، فلا يهيمن على أي جانب.
   static const List<({String id, String name, String description, int cost, int revenue, int maintenance, int growth})>
       productCatalog = [
     (
@@ -758,6 +760,15 @@ class ManagementState {
       revenue: 950,
       maintenance: 450,
       growth: 3,
+    ),
+    (
+      id: 'live_translation',
+      name: 'ترجمة فورية للفرق',
+      description: 'ترجمة محادثات واجتماعات فورية بين لغات الفرق الموزعة.',
+      cost: 14500,
+      revenue: 900,
+      maintenance: 500,
+      growth: 4,
     ),
   ];
 

@@ -1563,6 +1563,60 @@ void main() {
     expect(restored.trainingBoost, 2);
   });
 
+  test('إطلاق الترجمة الفورية يخصم ثمنها ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.launchProduct('live_translation'), isTrue);
+    expect(s.cash, 150000 - 14500);
+    expect(s.launchedProducts, contains('live_translation'));
+    expect(s.launchProduct('live_translation'), isFalse);
+    expect(s.cash, 150000 - 14500);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.launchProduct('live_translation'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.launchedProducts, isEmpty);
+  });
+
+  test('الترجمة الفورية تدر إيرادها وتكلف صيانتها وتنمو بالمستخدمين', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.launchProduct('live_translation'), isTrue);
+    final report = s.advanceWeek(random: _ZeroRandom());
+    control.advanceWeek(random: _ZeroRandom());
+    expect(s.productsRevenue, 900);
+    expect(s.productsCost, 500);
+    expect(s.productsGrowth, 4);
+    expect(report.productRevenue, 900);
+    expect(report.productCost, 500);
+    expect(s.users, control.users + 4);
+    expect(s.cash, control.cash - 14500 + 400);
+    expect(report.lines.any((l) => l.contains('المنتجات:')), isTrue);
+  });
+
+  test('الترجمة الفورية صافي أدنى من المنصة بلا هيمنة وحفظها واسترجاعها',
+      () {
+    final def = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'live_translation');
+    final apiDef =
+        ManagementState.productCatalog.firstWhere((d) => d.id == 'api');
+    final agentsDef =
+        ManagementState.productCatalog.firstWhere((d) => d.id == 'agents');
+    expect(def.revenue - def.maintenance, 400);
+    expect(def.revenue - def.maintenance,
+        lessThan(agentsDef.revenue - agentsDef.maintenance));
+    expect(def.growth, agentsDef.growth);
+    expect(def.revenue - def.maintenance,
+        lessThan(apiDef.revenue - apiDef.maintenance));
+    final s = ManagementState();
+    s.launchProduct('live_translation');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.launchedProducts, contains('live_translation'));
+    expect(restored.productsRevenue, 900);
+    expect(restored.productsCost, 500);
+    final oldJson = s.toJson()..remove('launchedProducts');
+    final restoredOld = ManagementState.fromJson(oldJson);
+    expect(restoredOld.launchedProducts, isEmpty);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
