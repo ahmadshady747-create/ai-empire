@@ -1448,6 +1448,61 @@ void main() {
     expect(old.startResearch('agent_memory'), isTrue);
   });
 
+  test('إطلاق مساعد الأبحاث يخصم ثمنه ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.launchProduct('research_assistant'), isTrue);
+    expect(s.cash, 150000 - 13500);
+    expect(s.launchedProducts, contains('research_assistant'));
+    expect(s.launchProduct('research_assistant'), isFalse);
+    expect(s.cash, 150000 - 13500);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.launchProduct('research_assistant'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.launchedProducts, isEmpty);
+  });
+
+  test('مساعد الأبحاث يدر إيراده ويكلف صيانته وينمو بالمستخدمين', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.launchProduct('research_assistant'), isTrue);
+    final report = s.advanceWeek(random: _ZeroRandom());
+    control.advanceWeek(random: _ZeroRandom());
+    expect(s.productsRevenue, 950);
+    expect(s.productsCost, 450);
+    expect(s.productsGrowth, 3);
+    expect(report.productRevenue, 950);
+    expect(report.productCost, 450);
+    expect(s.users, control.users + 3);
+    expect(s.cash, control.cash - 13500 + 500);
+    expect(report.lines.any((l) => l.contains('المنتجات:')), isTrue);
+  });
+
+  test('مساعد الأبحاث صافي متوسط بلا هيمنة وحفظه واسترجاعه', () {
+    final researchDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'research_assistant');
+    final apiDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'api');
+    final agentsDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'agents');
+    final codingDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'coding');
+    expect(researchDef.revenue - researchDef.maintenance, 500);
+    expect(researchDef.revenue - researchDef.maintenance,
+        lessThan(apiDef.revenue - apiDef.maintenance));
+    expect(researchDef.revenue - researchDef.maintenance,
+        lessThan(agentsDef.revenue - agentsDef.maintenance));
+    expect(researchDef.growth, lessThan(codingDef.growth));
+    final s = ManagementState();
+    s.launchProduct('research_assistant');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.launchedProducts, contains('research_assistant'));
+    expect(restored.productsRevenue, 950);
+    expect(restored.productsCost, 450);
+    final oldJson = s.toJson()..remove('launchedProducts');
+    final restoredOld = ManagementState.fromJson(oldJson);
+    expect(restoredOld.launchedProducts, isEmpty);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.

@@ -739,6 +739,15 @@ class ManagementState {
       maintenance: 500,
       growth: 4,
     ),
+    (
+      id: 'research_assistant',
+      name: 'مساعد أبحاث للمؤسسات',
+      description: 'بحث وتلخيص أوراق ومصادر للمؤسسات من نماذجك.',
+      cost: 13500,
+      revenue: 950,
+      maintenance: 450,
+      growth: 3,
+    ),
   ];
 
   /// إطلاق منتج: ثمن مقدم، ولا إطلاق مكرر لمنتج مطلق
