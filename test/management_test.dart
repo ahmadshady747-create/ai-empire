@@ -1272,6 +1272,43 @@ void main() {
     expect(old.startService('support_agents'), isTrue);
   });
 
+  test('خدمة تدقيق الأمان والمواءمة: بدء وإيقاف وأثمان 1150/500/15/فريق', () {
+    final s = ManagementState();
+    expect(s.startService('safety_audit'), isTrue);
+    expect(s.startService('safety_audit'), isFalse);
+    final started = s.services.singleWhere((e) => e.id == 'safety_audit');
+    expect(started.weeklyRevenue, 1150);
+    expect(started.weeklyCost, 500);
+    expect(started.computeUsed, 15);
+    expect(started.teamLoad, isTrue);
+    expect(started.bigClient, isFalse);
+    expect(s.stopService('safety_audit'), isTrue);
+    expect(s.stopService('safety_audit'), isFalse);
+  });
+
+  test('أسبوع خدمة التدقيق مقابل ضابطة: بحث أبطأ بثلاث وتقرير 1150/500', () {
+    final s = ManagementState();
+    s.startService('safety_audit');
+    final report = s.advanceWeek(random: _NeverRandom());
+    final control = ManagementState();
+    control.advanceWeek(random: _NeverRandom());
+    expect(s.researchProgress, 3);
+    expect(control.researchProgress, 6);
+    expect(report.servicesRevenue, 1150);
+    expect(report.servicesCost, 500);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على خدمة التدقيق', () {
+    final s = ManagementState();
+    s.startService('safety_audit');
+    s.advanceWeek(random: _NeverRandom());
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.services.map((e) => e.id), contains('safety_audit'));
+    expect(restored.servicesRevenue, 1150);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.startService('safety_audit'), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
