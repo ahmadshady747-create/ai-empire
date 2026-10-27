@@ -905,6 +905,53 @@ void main() {
     expect(old.dataQuality, 70);
   });
 
+  test('منصة الوكلاء تطلق بثمنها وتدر إيرادها وتكلف صيانتها أسبوعا', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.launchProduct('agents'), isTrue);
+    expect(s.cash, 150000 - 15000);
+    expect(s.launchProduct('agents'), isFalse);
+    expect(s.cash, 150000 - 15000);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.launchProduct('agents'), isFalse);
+    expect(poor.cash, 1000);
+    final report = s.advanceWeek(random: _ZeroRandom());
+    control.advanceWeek(random: _ZeroRandom());
+    expect(s.productsRevenue, 1000);
+    expect(s.productsCost, 450);
+    expect(s.productsGrowth, 4);
+    expect(report.productRevenue, 1000);
+    expect(report.productCost, 450);
+    expect(s.users, control.users + 4);
+    expect(s.cash, control.cash - 15000 + 550);
+    expect(report.lines.any((l) => l.contains('المنتجات:')), isTrue);
+  });
+
+  test('منصة الوكلاء في الوسط: لا أعلى صافي ولا أعلى نمو ولا أرخص ثمن', () {
+    final agentsDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'agents');
+    final apiDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'api');
+    final codingDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'coding');
+    expect(agentsDef.cost, 15000);
+    expect(agentsDef.revenue - agentsDef.maintenance, 550);
+    expect(apiDef.revenue - apiDef.maintenance, 600);
+    expect(codingDef.growth, 5);
+    expect(agentsDef.growth, 4);
+    expect(agentsDef.cost, greaterThan(codingDef.cost));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على منصة الوكلاء', () {
+    final s = ManagementState();
+    s.launchProduct('agents');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.launchedProducts, contains('agents'));
+    expect(restored.productsRevenue, 1000);
+    expect(restored.productsCost, 450);
+    expect(restored.cash, s.cash);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
