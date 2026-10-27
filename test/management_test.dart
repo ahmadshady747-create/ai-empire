@@ -952,6 +952,54 @@ void main() {
     expect(restored.cash, s.cash);
   });
 
+  test('تحليل الوثائق يطلق بثمنه ويدر إيراده ويكلف صيانته أسبوعا', () {
+    final s = ManagementState();
+    final control = ManagementState();
+    expect(s.launchProduct('docs'), isTrue);
+    expect(s.cash, 150000 - 12000);
+    expect(s.launchProduct('docs'), isFalse);
+    expect(s.cash, 150000 - 12000);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.launchProduct('docs'), isFalse);
+    expect(poor.cash, 1000);
+    final report = s.advanceWeek(random: _ZeroRandom());
+    control.advanceWeek(random: _ZeroRandom());
+    expect(s.productsRevenue, 850);
+    expect(s.productsCost, 400);
+    expect(s.productsGrowth, 3);
+    expect(report.productRevenue, 850);
+    expect(report.productCost, 400);
+    expect(s.users, control.users + 3);
+    expect(s.cash, control.cash - 12000 + 450);
+    expect(report.lines.any((l) => l.contains('المنتجات:')), isTrue);
+  });
+
+  test('تحليل الوثائق في الوسط: لا أعلى صافي ولا أعلى نمو ولا أرخص ثمن', () {
+    final docsDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'docs');
+    final apiDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'api');
+    final codingDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'coding');
+    expect(docsDef.cost, 12000);
+    expect(docsDef.revenue - docsDef.maintenance, 450);
+    expect(apiDef.revenue - apiDef.maintenance, 600);
+    expect(codingDef.growth, 5);
+    expect(docsDef.growth, 3);
+    expect(docsDef.cost, greaterThan(apiDef.cost));
+    expect(docsDef.cost, lessThan(codingDef.cost));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على تحليل الوثائق', () {
+    final s = ManagementState();
+    s.launchProduct('docs');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.launchedProducts, contains('docs'));
+    expect(restored.productsRevenue, 850);
+    expect(restored.productsCost, 400);
+    expect(restored.cash, s.cash);
+  });
+
   test('تعيين خبير مواءمة يخصم ثمنه ويرفع السمعة ويرفض المكرر وبلا نقد', () {
     final s = ManagementState();
     expect(s.hireStaff('safety_lead'), isTrue);

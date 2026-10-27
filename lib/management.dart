@@ -653,7 +653,9 @@ class ManagementState {
   /// ومساعد البرمجة أعلى نمو لكن صافيها الأدنى وثمنها
   /// الأعلى، وروبوت المحادثة أرخص دخول بصافي ونمو متوسطين،
   /// ومنصة الوكلاء أعلى ثمن إطلاق لكن صافيها ونموها
-  /// في الوسط، فلا تغني عن غيرها.
+  /// في الوسط، فلا تغني عن غيرها، وتحليل الوثائق
+  /// صافي متوسط بثمن متوسط ونمو متوسط، فلا يهيمن
+  /// على أي جانب أيضا.
   static const List<({String id, String name, String description, int cost, int revenue, int maintenance, int growth})>
       productCatalog = [
     (
@@ -691,6 +693,15 @@ class ManagementState {
       revenue: 1000,
       maintenance: 450,
       growth: 4,
+    ),
+    (
+      id: 'docs',
+      name: 'تحليل وثائق للمؤسسات',
+      description: 'استخراج وتلخيص معلومات من وثائق المؤسسات الطويلة.',
+      cost: 12000,
+      revenue: 850,
+      maintenance: 400,
+      growth: 3,
     ),
   ];
 
