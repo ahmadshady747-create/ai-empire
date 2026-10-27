@@ -840,9 +840,12 @@ class ManagementState {
     return true;
   }
 
-  /// كتالوج الخدمات الأصلي: ست خدمات حول النماذج، لا نماذج فقط.
+  /// كتالوج الخدمات الأصلي: سبع خدمات حول النماذج، لا نماذج فقط.
   /// السادسة (دعم وتشغيل نماذج مفتوحة للغير) هي الوحيدة التي
   /// تكلّف حوسبة وفريقا معا: حوسبة 20 وفريقا، فثمنها مزدوج.
+  /// السابعة (تقييم واختبار نماذج للغير) تكلّف فريقا فقط مثل
+  /// الضبط الدقيق، لكن صافيها الأسبوعي 650 يقع بين الوسم
+  /// (500) والضبط (700)، فلا تهيمن على أي منهما.
   /// أسماء العملاء خيالية عامة، لا تشير لأي شركة حقيقية.
   static const List<({String id, String name, int revenue, int cost, int compute, bool team, bool big})>
       serviceCatalog = [
@@ -897,6 +900,15 @@ class ManagementState {
       revenue: 1000,
       cost: 350,
       compute: 20,
+      team: true,
+      big: false,
+    ),
+    (
+      id: 'model_evaluation',
+      name: 'تقييم واختبار نماذج للغير',
+      revenue: 950,
+      cost: 300,
+      compute: 0,
       team: true,
       big: false,
     ),

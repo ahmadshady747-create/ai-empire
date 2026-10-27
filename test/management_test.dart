@@ -1107,6 +1107,42 @@ void main() {
     expect(old.startResearch('compute_efficiency'), isTrue);
   });
 
+  test('بدء خدمة التقييم وإيقافها وأثمانها', () {
+    final s = ManagementState();
+    expect(s.startService('model_evaluation'), isTrue);
+    expect(s.startService('model_evaluation'), isFalse);
+    expect(s.servicesRevenue, 950);
+    expect(s.servicesCost, 300);
+    expect(s.servicesCompute, 0);
+    expect(s.teamServiceCount, 1);
+    expect(s.stopService('model_evaluation'), isTrue);
+    expect(s.servicesRevenue, 0);
+    expect(s.teamServiceCount, 0);
+  });
+
+  test('أسبوع بخدمة التقييم يبطئ البحث 3 ويسجل إيرادها وتكلفتها', () {
+    final s = ManagementState();
+    s.startService('model_evaluation');
+    final report = s.advanceWeek(random: _NeverRandom());
+    expect(report.servicesRevenue, 950);
+    expect(report.servicesCost, 300);
+    expect(s.researchProgress, 3);
+    final control = ManagementState();
+    control.advanceWeek(random: _NeverRandom());
+    expect(control.researchProgress, 6);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على خدمة التقييم', () {
+    final s = ManagementState();
+    s.startService('model_evaluation');
+    s.advanceWeek(random: _NeverRandom());
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.services.map((e) => e.id), contains('model_evaluation'));
+    expect(restored.servicesRevenue, 950);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.startService('model_evaluation'), isTrue);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
