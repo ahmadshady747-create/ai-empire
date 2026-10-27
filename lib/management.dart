@@ -803,7 +803,9 @@ class ManagementState {
     return true;
   }
 
-  /// كتالوج الخدمات الأصلي: خمس خدمات حول النماذج، لا نماذج فقط.
+  /// كتالوج الخدمات الأصلي: ست خدمات حول النماذج، لا نماذج فقط.
+  /// السادسة (دعم وتشغيل نماذج مفتوحة للغير) هي الوحيدة التي
+  /// تكلّف حوسبة وفريقا معا: حوسبة 20 وفريقا، فثمنها مزدوج.
   /// أسماء العملاء خيالية عامة، لا تشير لأي شركة حقيقية.
   static const List<({String id, String name, int revenue, int cost, int compute, bool team, bool big})>
       serviceCatalog = [
@@ -851,6 +853,15 @@ class ManagementState {
       compute: 0,
       team: true,
       big: true,
+    ),
+    (
+      id: 'open_model_support',
+      name: 'دعم وتشغيل نماذج مفتوحة للغير',
+      revenue: 1000,
+      cost: 350,
+      compute: 20,
+      team: true,
+      big: false,
     ),
   ];
 

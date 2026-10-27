@@ -822,6 +822,59 @@ void main() {
     expect(restoredOld.lastWorldEvent, '');
   });
 
+  test('خدمة دعم النماذج المفتوحة: بدء ورفض مكرر وأثمانها', () {
+    final s = ManagementState();
+    expect(s.startService('open_model_support'), isTrue);
+    expect(s.startService('open_model_support'), isFalse);
+    expect(s.services.length, 1);
+    expect(s.servicesRevenue, 1000);
+    expect(s.servicesCost, 350);
+    expect(s.servicesCompute, 20);
+    expect(s.teamServiceCount, 1);
+    expect(s.stopService('open_model_support'), isTrue);
+    expect(s.services, isEmpty);
+    expect(s.stopService('open_model_support'), isFalse);
+  });
+
+  test('خدمة النماذج المفتوحة تبطئ البحث وتأكل الحوسبة أسبوعيا', () {
+    final control = ManagementState();
+    final open = ManagementState();
+    open.startService('open_model_support');
+    final controlReport =
+        control.advanceWeek(random: _NeverRandom());
+    final openReport = open.advanceWeek(random: _NeverRandom());
+    expect(openReport.servicesRevenue, 1000);
+    expect(openReport.servicesCost, 350);
+    expect(open.researchProgress, control.researchProgress - 3);
+    expect(open.computeAvailable, 90);
+    expect(control.computeAvailable, 110);
+    expect(open.services.length, 1);
+    expect(controlReport.servicesRevenue, 0);
+  });
+
+  test('حفظ واسترجاع خدمة النماذج المفتوحة', () {
+    final s = ManagementState();
+    s.startService('open_model_support');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.services.length, 1);
+    expect(restored.services.first.id, 'open_model_support');
+    expect(restored.servicesRevenue, 1000);
+    expect(restored.servicesCompute, 20);
+    expect(restored.teamServiceCount, 1);
+  });
+
+}
+
+/// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
+class _NeverRandom implements Random {
+  @override
+  double nextDouble() => 1;
+
+  @override
+  int nextInt(int max) => 0;
+
+  @override
+  bool nextBool() => false;
 }
 
 /// عشوائية حتمية للاختبارات: كل فرصة تتحقق، وكل عدد عشوائي صفر.
