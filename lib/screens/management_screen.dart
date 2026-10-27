@@ -199,6 +199,15 @@ class _ManagementScreenState extends State<ManagementScreen>
                           style: TextStyle(color: Colors.red),
                         ),
                       ),
+                    if (s.leadershipVictory)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'فوز بالصدارة: بلغت الترتيب الأول أربعة أسابيع متتالية بإدارتك.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.green),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -213,6 +222,7 @@ class _ManagementScreenState extends State<ManagementScreen>
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
                   _row('السمعة', '${s.reputation} / 100'),
+                  _row('أسابيع الصدارة المتتالية', '${s.leadershipWeeks}'),
                   _row('الإيراد الأسبوعي', '${s.weeklyRevenue}'),
                   _row('التكلفة الأسبوعية', '${s.weeklyCost}'),
                   _row('صافي الأسبوع', '${s.weeklyNet}'),

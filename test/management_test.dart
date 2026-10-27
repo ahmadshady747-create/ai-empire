@@ -989,6 +989,68 @@ void main() {
     expect(old.reputation, 60);
   });
 
+  test('الصدارة أربعة أسابيع متتالية تحقق فوزا إداريا، لا أسبوع واحد', () {
+    final s = ManagementState(
+      modelLevel: 5,
+      rivals: [
+        Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
+        Rival(name: 'نورال للأنظمة', modelLevel: 1, strategy: 'جودة'),
+        Rival(name: 'قمة الحوسبة', modelLevel: 1, strategy: 'سعر'),
+      ],
+    );
+    for (var i = 0; i < 3; i++) {
+      final report = s.advanceWeek(random: _NeverRandom());
+      expect(s.rank, 1);
+      expect(s.leadershipWeeks, i + 1);
+      expect(s.leadershipVictory, isFalse);
+      expect(report.lines.any((l) => l.contains('في الصدارة')), isTrue);
+    }
+    final fourth = s.advanceWeek(random: _NeverRandom());
+    expect(s.leadershipWeeks, 4);
+    expect(s.leadershipVictory, isTrue);
+    expect(
+        fourth.lines.any((l) => l.contains('أربعة أسابيع متتالية')), isTrue);
+  });
+
+  test('التراجع عن الصدارة يصفّر سلسلتها لكنه لا يلغي فوزا تحقق', () {
+    final s = ManagementState(
+      modelLevel: 5,
+      rivals: [
+        Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
+        Rival(name: 'نورال للأنظمة', modelLevel: 1, strategy: 'جودة'),
+        Rival(name: 'قمة الحوسبة', modelLevel: 1, strategy: 'سعر'),
+      ],
+    );
+    for (var i = 0; i < 4; i++) {
+      s.advanceWeek(random: _NeverRandom());
+    }
+    expect(s.leadershipVictory, isTrue);
+    s.rivals.first.modelLevel = 99;
+    s.advanceWeek(random: _NeverRandom());
+    expect(s.rank, greaterThan(1));
+    expect(s.leadershipWeeks, 0);
+    expect(s.leadershipVictory, isTrue);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على سلسلة الصدارة والفوز وتوافق مع حالة قديمة', () {
+    final s = ManagementState(
+      modelLevel: 5,
+      rivals: [
+        Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
+        Rival(name: 'نورال للأنظمة', modelLevel: 1, strategy: 'جودة'),
+        Rival(name: 'قمة الحوسبة', modelLevel: 1, strategy: 'سعر'),
+      ],
+    );
+    s.advanceWeek(random: _NeverRandom());
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.leadershipWeeks, 1);
+    expect(restored.leadershipVictory, isFalse);
+    expect(restored.rank, 1);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.leadershipWeeks, 0);
+    expect(old.leadershipVictory, isFalse);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.

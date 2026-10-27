@@ -420,6 +420,17 @@ class ManagementState {
   /// العالم نتيجة مرئية لا خيارا سرديا.
   String lastWorldEvent;
 
+  /// أسابيع الصدارة المتتالية: تزيد أسبوعا كل أسبوع ينتهي
+  /// وأنت في الترتيب الأول، وتصفّر إن تراجعت عنه، فالصدارة
+  /// ليوم واحد لا تكفي للفوز — لا بد من الحفاظ عليها.
+  int leadershipWeeks;
+
+  /// فوز الصدارة: يتحقق مرة واحدة عند بلوغ أربعة أسابيع
+  /// متتالية في الترتيب الأول، ويبقى محققا بعدها حتى لو
+  /// تراجعت لاحقا، لأن الفوز كان نتيجة إدارة فعلية لا
+  /// خيارا سرديا واحدا.
+  bool leadershipVictory;
+
   ManagementState({
     this.week = 1,
     this.cash = 150000,
@@ -451,6 +462,8 @@ class ManagementState {
     List<String>? hiredStaff,
     this.maintenanceWeeks = 0,
     this.lastWorldEvent = '',
+    this.leadershipWeeks = 0,
+    this.leadershipVictory = false,
   })  : rivals = rivals ??
             [
               Rival(name: 'مدار للذكاء', modelLevel: 1, strategy: 'سرعة'),
@@ -1352,6 +1365,22 @@ class ManagementState {
       reputation = _clampInt(reputation - 3, 0, 100);
     }
 
+    // 7) سلسلة الصدارة والفوز بها: الترتيب هنا نهائي لهذا
+    // الأسبوع بعد كل تحركات المنافسين، فإن كنت الأول زادت
+    // السلسلة أسبوعا وإلا صفّرت، وعند الأسبوع الرابع
+    // المتتالي يتحقق فوز الصدارة مرة واحدة ويبقى.
+    var leadershipVictoryLine = '';
+    if (rank == 1) {
+      leadershipWeeks += 1;
+    } else {
+      leadershipWeeks = 0;
+    }
+    if (!leadershipVictory && leadershipWeeks >= 4) {
+      leadershipVictory = true;
+      leadershipVictoryLine =
+          'بلغت الصدارة أربعة أسابيع متتالية: فوز إداري بالصدارة، تحقق بإدارة لا بخيار واحد.';
+    }
+
     week += 1;
     final lines = <String>[
       'إيراد الأسبوع: $revenue، رواتب: $salaries، استدلال: $inference، صافي: ${revenue - salaries - inference}.',
@@ -1381,6 +1410,9 @@ class ManagementState {
         'فقدت عميل خدمة فجأة: $c — إيراده يسقط من الأسبوع التالي.',
       if (cash < 0)
         'نفد النقد ونفد الائتمان: الشركة مفلسة. البقاء كان الشرط الأول.',
+      if (rank == 1)
+        'أنت في الصدارة للأسبوع $leadershipWeeks على التوالي.',
+      if (leadershipVictoryLine.isNotEmpty) leadershipVictoryLine,
     ];
     return WeekReport(
       week: week - 1,
@@ -1446,6 +1478,8 @@ class ManagementState {
         'hiredStaff': hiredStaff,
         'maintenanceWeeks': maintenanceWeeks,
         'lastWorldEvent': lastWorldEvent,
+        'leadershipWeeks': leadershipWeeks,
+        'leadershipVictory': leadershipVictory,
       };
 
   factory ManagementState.fromJson(Map<String, dynamic> j) =>
@@ -1500,5 +1534,7 @@ class ManagementState {
             .toList(),
         maintenanceWeeks: (j['maintenanceWeeks'] as num?)?.toInt() ?? 0,
         lastWorldEvent: (j['lastWorldEvent'] as String?) ?? '',
+        leadershipWeeks: (j['leadershipWeeks'] as num?)?.toInt() ?? 0,
+        leadershipVictory: (j['leadershipVictory'] as bool?) ?? false,
       );
 }
