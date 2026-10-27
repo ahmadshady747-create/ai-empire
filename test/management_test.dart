@@ -863,6 +863,48 @@ void main() {
     expect(restored.teamServiceCount, 1);
   });
 
+  test('تعيين خبير بيانات يخصم ثمنه ويرفع الجودة ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.hireStaff('data_lead'), isTrue);
+    expect(s.cash, 150000 - 6500);
+    expect(s.dataQuality, 70);
+    expect(s.staffSalaries, 750);
+    expect(s.hireStaff('data_lead'), isFalse);
+    expect(s.cash, 150000 - 6500);
+    expect(s.dataQuality, 70);
+    final poor = ManagementState()..cash = 1000;
+    expect(poor.hireStaff('data_lead'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.dataQuality, 55);
+  });
+
+  test('خبير البيانات لا يرفع الجودة فوق 100', () {
+    final s = ManagementState()..dataQuality = 95;
+    expect(s.hireStaff('data_lead'), isTrue);
+    expect(s.dataQuality, 100);
+  });
+
+  test('خبير البيانات يسرّع التدريب عند عبور عتبة الجودة 80 مقابل ضابطة', () {
+    final hired = ManagementState()..dataQuality = 70;
+    expect(hired.hireStaff('data_lead'), isTrue);
+    expect(hired.dataQuality, 85);
+    final control = ManagementState()..dataQuality = 70;
+    final hiredReport = hired.advanceWeek(random: _ZeroRandom());
+    final controlReport = control.advanceWeek(random: _ZeroRandom());
+    expect(hiredReport.trainingAfter, controlReport.trainingAfter + 2);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على خبير البيانات وتوافق مع حالة قديمة', () {
+    final s = ManagementState()..hireStaff('data_lead');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.hiredStaff, ['data_lead']);
+    expect(restored.dataQuality, 70);
+    expect(restored.staffSalaries, 750);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.hireStaff('data_lead'), isTrue);
+    expect(old.dataQuality, 70);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.
