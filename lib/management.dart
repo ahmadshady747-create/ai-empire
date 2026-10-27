@@ -477,12 +477,14 @@ class ManagementState {
         poachedRivals = poachedRivals ?? [],
         hiredStaff = hiredStaff ?? [];
 
-  /// كتالوج مشاريع البحث الأصلي: خمسة اتجاهات من عصر النماذج
+  /// كتالوج مشاريع البحث الأصلي: ستة اتجاهات من عصر النماذج
   /// الحدودية والوكلاء الحالي، لا من عصر قديم. كل اتجاه له
   /// ثمن ومدة وتأثير دائم مختلف، فيتشابك مع نظام آخر.
   /// الخامس (كفاءة الحوسبة) يعيد للحوسبة ما تأكله الأزمات
   /// والخدمات، لكنه متأخر خمسة أسابيع وليس فوريا كتعيين
   /// مهندس البنية، فالاختيار بين السرعة والكلفة قرار توازن.
+  /// السادس (توليد بيانات تركيبية) يوسّع مخزون البيانات دون
+  /// شراء، لكنه لا يرفع جودتها، فيبقى التنظيف ضروريا بعده.
   static const List<({String id, String name, String description, int cost, int weeks, String effect})>
       researchCatalog = [
     (
@@ -525,6 +527,14 @@ class ManagementState {
       weeks: 5,
       effect: 'حوسبتك المتاحة تزيد 20 وحدة عند الاكتمال.',
     ),
+    (
+      id: 'synthetic_data',
+      name: 'توليد بيانات تركيبية',
+      description: 'بيانات مولّدة آليا توسّع مخزونك دون شراء مجموعة جديدة.',
+      cost: 6500,
+      weeks: 5,
+      effect: 'كمية بياناتك تزيد 300 عند الاكتمال، دون تغيير الجودة.',
+    ),
   ];
 
   /// بدء مشروع بحث: مشروع واحد نشط فقط، ولا إعادة لمشروع
@@ -559,6 +569,8 @@ class ManagementState {
         userGrowthBoost += 5;
       case 'compute_efficiency':
         computeAvailable = _clampInt(computeAvailable + 20, 0, 200);
+      case 'synthetic_data':
+        dataQuantity += 300;
     }
     final def =
         researchCatalog.firstWhere((d) => d.id == project.id);

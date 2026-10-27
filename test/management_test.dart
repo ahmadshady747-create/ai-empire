@@ -1107,6 +1107,50 @@ void main() {
     expect(old.startResearch('compute_efficiency'), isTrue);
   });
 
+  test('بدء مشروع بيانات تركيبية يخصم ثمنه ويرفض مشروعا ثانيا أو بلا نقد', () {
+    final s = ManagementState();
+    final cashBefore = s.cash;
+    expect(s.startResearch('synthetic_data'), isTrue);
+    expect(s.cash, cashBefore - 6500);
+    expect(s.activeResearch?.id, 'synthetic_data');
+    expect(s.startResearch('architecture'), isFalse);
+    expect(s.cash, cashBefore - 6500);
+    final poor = ManagementState(cash: 100);
+    expect(poor.startResearch('synthetic_data'), isFalse);
+    expect(poor.activeResearch, isNull);
+  });
+
+  test('مشروع بيانات تركيبية يكتمل بعد 5 أسابيع ويزيد الكمية 300 دون جودة', () {
+    final s = ManagementState();
+    expect(s.startResearch('synthetic_data'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 5; i++) {
+      last = s.advanceWeek(random: _ZeroRandom());
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('synthetic_data'));
+    expect(last?.researchCompleted, contains('تركيبية'));
+    expect(s.startResearch('synthetic_data'), isFalse);
+    final control = ManagementState();
+    for (var i = 0; i < 5; i++) {
+      control.advanceWeek(random: _ZeroRandom());
+    }
+    expect(control.dataQuantity, 800);
+    expect(control.dataQuality, s.dataQuality);
+    expect(s.dataQuantity, 1100);
+  });
+
+  test('الحفظ والاسترجاع يحافظان على مشروع بيانات تركيبية', () {
+    final s = ManagementState();
+    s.startResearch('synthetic_data');
+    s.advanceWeek(random: _ZeroRandom());
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeResearch?.id, 'synthetic_data');
+    expect(restored.activeResearch?.weeksDone, 1);
+    final old = ManagementState.fromJson({'cash': 150000});
+    expect(old.startResearch('synthetic_data'), isTrue);
+  });
+
   test('بدء خدمة التقييم وإيقافها وأثمانها', () {
     final s = ManagementState();
     expect(s.startService('model_evaluation'), isTrue);
