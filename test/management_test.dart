@@ -1695,6 +1695,48 @@ void main() {
     expect(restored.dataQuantity, control.dataQuantity + 150);
   });
 
+  test('إطلاق مساعد الدعم يخصم أعلى ثمن ويرفض المكرر وبلا نقد', () {
+    final s = ManagementState();
+    expect(s.launchProduct('support'), isTrue);
+    expect(s.cash, 150000 - 15500);
+    expect(s.productsRevenue, 1000);
+    expect(s.productsCost, 600);
+    expect(s.productsGrowth, 2);
+    expect(s.launchProduct('support'), isFalse);
+    expect(s.cash, 150000 - 15500);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.launchProduct('support'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.launchedProducts, isEmpty);
+  });
+
+  test('مساعد الدعم أعلى ثمنا لكن صافيه ونموه أدنى من الأعلى فلا يهيمن', () {
+    final def = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'support');
+    final apiDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'api');
+    final agentsDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'agents');
+    final chatDef = ManagementState.productCatalog
+        .firstWhere((d) => d.id == 'chatbot');
+    expect(def.cost, 15500);
+    expect(def.cost, greaterThan(agentsDef.cost));
+    expect(def.revenue - def.maintenance, 400);
+    expect(def.revenue - def.maintenance, lessThan(apiDef.revenue - apiDef.maintenance));
+    expect(def.revenue - def.maintenance, chatDef.revenue - chatDef.maintenance);
+    expect(def.growth, lessThan(agentsDef.growth));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على مساعد الدعم المطلق', () {
+    final s = ManagementState();
+    s.launchProduct('support');
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.launchedProducts, contains('support'));
+    expect(restored.productsRevenue, 1000);
+    expect(restored.productsCost, 600);
+    expect(restored.cash, s.cash);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.

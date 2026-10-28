@@ -706,7 +706,10 @@ class ManagementState {
   /// بثمن مرتفع ونمو يساوي منصة الوكلاء لكن صافيه
   /// أدنى منها، فلا يهيمن على أي جانب أيضا، والثامن
   /// (ترجمة فورية) نمو يساوي منصة الوكلاء لكن صافيه
-  /// أدنى منها وثمنه أعلى، فلا يهيمن على أي جانب.
+  /// أدنى منها وثمنه أعلى، فلا يهيمن على أي جانب،
+  /// والتاسع (دعم عملاء) أعلى ثمن إطلاق لكن صافيه
+  /// يساوي روبوت المحادثة ونموه أدنى من منصة الوكلاء،
+  /// فلا يهيمن على أي جانب رغم ثمنه الأعلى.
   static const List<({String id, String name, String description, int cost, int revenue, int maintenance, int growth})>
       productCatalog = [
     (
@@ -780,6 +783,15 @@ class ManagementState {
       revenue: 900,
       maintenance: 500,
       growth: 4,
+    ),
+    (
+      id: 'support',
+      name: 'مساعد دعم عملاء للمؤسسات',
+      description: 'ردود دعم أولية لعملاء المؤسسات على نموذجك، بصيانة ثقيلة.',
+      cost: 15500,
+      revenue: 1000,
+      maintenance: 600,
+      growth: 2,
     ),
   ];
 
