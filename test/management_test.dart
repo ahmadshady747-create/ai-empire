@@ -1737,6 +1737,82 @@ void main() {
     expect(restored.cash, s.cash);
   });
 
+  test('بدء النشر الكفء يخصم ثمنه ويرفض مشروعا ثانيا أو بلا نقد', () {
+    final s = ManagementState();
+    expect(s.startResearch('efficient_deployment'), isTrue);
+    expect(s.cash, 150000 - 8000);
+    expect(s.activeResearch?.id, 'efficient_deployment');
+    expect(s.startResearch('architecture'), isFalse);
+    expect(s.cash, 150000 - 8000);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.startResearch('efficient_deployment'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.activeResearch, isNull);
+  });
+
+  test('النشر الكفء يكتمل بعد 6 أسابيع بحوسبة +10 وسمعة +3 ولا يتكرر',
+      () {
+    final s = ManagementState();
+    expect(s.startResearch('efficient_deployment'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 6; i++) {
+      last = s.advanceWeek(random: Random(11));
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('efficient_deployment'));
+    expect(last?.researchCompleted, contains('نشر كفء'));
+    expect(s.startResearch('efficient_deployment'), isFalse);
+    final control = ManagementState();
+    for (var i = 0; i < 6; i++) {
+      control.advanceWeek(random: Random(11));
+    }
+    expect(s.computeAvailable, control.computeAvailable + 10);
+    expect(s.reputation, control.reputation + 3);
+  });
+
+  test('النشر الكفء أضعف من المتخصصين في الحوسبة والسمعة فلا يهيمن', () {
+    final def = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'efficient_deployment');
+    final computeDef = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'compute_efficiency');
+    final alignmentDef = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'alignment');
+    expect(def.cost, greaterThan(computeDef.cost));
+    expect(def.cost, greaterThan(alignmentDef.cost));
+    expect(def.weeks, greaterThan(computeDef.weeks));
+    final s = ManagementState();
+    s.startResearch('efficient_deployment');
+    for (var i = 0; i < 6; i++) {
+      s.advanceWeek(random: Random(11));
+    }
+    final control = ManagementState();
+    for (var i = 0; i < 6; i++) {
+      control.advanceWeek(random: Random(11));
+    }
+    expect(s.computeAvailable, control.computeAvailable + 10);
+    expect(s.computeAvailable, lessThan(control.computeAvailable + 20));
+    expect(s.reputation, control.reputation + 3);
+    expect(s.reputation, lessThan(control.reputation + 10));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على النشر الكفء النشط ومكافأتيه', () {
+    final s = ManagementState();
+    s.startResearch('efficient_deployment');
+    s.advanceWeek(random: Random(6));
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeResearch?.id, 'efficient_deployment');
+    expect(restored.activeResearch?.weeksDone, 1);
+    for (var i = 0; i < 5; i++) {
+      restored.advanceWeek(random: Random(6));
+    }
+    final control = ManagementState();
+    for (var i = 0; i < 6; i++) {
+      control.advanceWeek(random: Random(6));
+    }
+    expect(restored.computeAvailable, control.computeAvailable + 10);
+    expect(restored.reputation, control.reputation + 3);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.

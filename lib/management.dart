@@ -570,6 +570,14 @@ class ManagementState {
       weeks: 6,
       effect: 'سمعتك ترتفع 4 نقاط وكمية بياناتك تزيد 150 عند الاكتمال.',
     ),
+    (
+      id: 'efficient_deployment',
+      name: 'نشر كفء',
+      description: 'تحسين نشر النموذج ليستهلك حوسبة أقل، مع مراقبة جودة مخرجاته بعد النشر.',
+      cost: 8000,
+      weeks: 6,
+      effect: 'حوسبتك المتاحة تزيد 10 وحدات وسمعتك ترتفع 3 نقاط عند الاكتمال.',
+    ),
   ];
 
   /// بدء مشروع بحث: مشروع واحد نشط فقط، ولا إعادة لمشروع
@@ -618,6 +626,9 @@ class ManagementState {
       case 'capability_evaluation':
         reputation = _clampInt(reputation + 4, 0, 100);
         dataQuantity += 150;
+      case 'efficient_deployment':
+        computeAvailable = _clampInt(computeAvailable + 10, 0, 200);
+        reputation = _clampInt(reputation + 3, 0, 100);
     }
     final def =
         researchCatalog.firstWhere((d) => d.id == project.id);
