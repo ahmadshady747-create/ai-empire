@@ -1,4 +1,4 @@
-package com.life8billion.life_8_billion
+package com.aiempire.ai_empire
 
 import io.flutter.embedding.android.FlutterActivity
 
