@@ -1,7 +1,7 @@
 name: ai_empire
 description: "لعبة قرارات قصصية: من مطور في مرآب إلى إمبراطورية ذكاء اصطناعي."
 publish_to: "none"
-version: 1.48.0+49
+version: 1.49.0+50
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
