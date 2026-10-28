@@ -1617,6 +1617,84 @@ void main() {
     expect(restoredOld.launchedProducts, isEmpty);
   });
 
+  test('بدء التقييم المستمر يخصم ثمنه ويرفض مشروعا ثانيا أو بلا نقد', () {
+    final s = ManagementState();
+    expect(s.startResearch('capability_evaluation'), isTrue);
+    expect(s.cash, 150000 - 7200);
+    expect(s.activeResearch?.id, 'capability_evaluation');
+    expect(s.startResearch('architecture'), isFalse);
+    expect(s.cash, 150000 - 7200);
+    final poor = ManagementState(cash: 1000);
+    expect(poor.startResearch('capability_evaluation'), isFalse);
+    expect(poor.cash, 1000);
+    expect(poor.activeResearch, isNull);
+  });
+
+  test('التقييم المستمر يكتمل بعد 6 أسابيع بسمعة +4 وبيانات +150 ولا يتكرر',
+      () {
+    final s = ManagementState();
+    expect(s.startResearch('capability_evaluation'), isTrue);
+    WeekReport? last;
+    for (var i = 0; i < 6; i++) {
+      last = s.advanceWeek(random: Random(11));
+    }
+    expect(s.activeResearch, isNull);
+    expect(s.completedResearch, contains('capability_evaluation'));
+    expect(last?.researchCompleted, contains('تقييم قدرات مستمر'));
+    expect(s.startResearch('capability_evaluation'), isFalse);
+    // السمعة والبيانات أعلى من حالة ضابطة بنفس البذرة بمقدار
+    // المكافأتين فقط، لأن تحركات المنافسين قد تخفض السمعة في الحالتين معا.
+    final control = ManagementState();
+    for (var i = 0; i < 6; i++) {
+      control.advanceWeek(random: Random(11));
+    }
+    expect(s.reputation, control.reputation + 4);
+    expect(s.dataQuantity, control.dataQuantity + 150);
+  });
+
+  test('التقييم المستمر أضعف من المتخصصين في السمعة والبيانات فلا يهيمن',
+      () {
+    final def = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'capability_evaluation');
+    final alignmentDef = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'alignment');
+    final syntheticDef = ManagementState.researchCatalog
+        .firstWhere((d) => d.id == 'synthetic_data');
+    expect(def.cost, greaterThan(alignmentDef.cost));
+    expect(def.cost, greaterThan(syntheticDef.cost));
+    final s = ManagementState();
+    s.startResearch('capability_evaluation');
+    for (var i = 0; i < 6; i++) {
+      s.advanceWeek(random: Random(11));
+    }
+    final control = ManagementState();
+    for (var i = 0; i < 6; i++) {
+      control.advanceWeek(random: Random(11));
+    }
+    expect(s.reputation, control.reputation + 4);
+    expect(s.reputation, lessThan(control.reputation + 10));
+    expect(s.dataQuantity, control.dataQuantity + 150);
+    expect(s.dataQuantity, lessThan(control.dataQuantity + 300));
+  });
+
+  test('الحفظ والاسترجاع يحافظان على التقييم المستمر النشط ومكافأتيه', () {
+    final s = ManagementState();
+    s.startResearch('capability_evaluation');
+    s.advanceWeek(random: Random(6));
+    final restored = ManagementState.fromJson(s.toJson());
+    expect(restored.activeResearch?.id, 'capability_evaluation');
+    expect(restored.activeResearch?.weeksDone, 1);
+    for (var i = 0; i < 5; i++) {
+      restored.advanceWeek(random: Random(6));
+    }
+    final control = ManagementState();
+    for (var i = 0; i < 6; i++) {
+      control.advanceWeek(random: Random(6));
+    }
+    expect(restored.reputation, control.reputation + 4);
+    expect(restored.dataQuantity, control.dataQuantity + 150);
+  });
+
 }
 
 /// عشوائية حتمية للاختبارات: لا فرصة تتحقق أبدا، وكل عدد صفر.

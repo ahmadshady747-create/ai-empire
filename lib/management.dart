@@ -562,6 +562,14 @@ class ManagementState {
       weeks: 5,
       effect: 'بحثك الأسبوعي أسرع بنقطة وتدريبك أسرع بنقطتين دائما عند الاكتمال.',
     ),
+    (
+      id: 'capability_evaluation',
+      name: 'تقييم قدرات مستمر',
+      description: 'منظومة تقييم مستمر تقيس قدرات النموذج على مهام جديدة قبل كل إصدار، فتكشف نقاط ضعفه مبكرا.',
+      cost: 7200,
+      weeks: 6,
+      effect: 'سمعتك ترتفع 4 نقاط وكمية بياناتك تزيد 150 عند الاكتمال.',
+    ),
   ];
 
   /// بدء مشروع بحث: مشروع واحد نشط فقط، ولا إعادة لمشروع
@@ -607,6 +615,9 @@ class ManagementState {
       case 'distributed_training':
         researchBoost += 1;
         trainingBoost += 2;
+      case 'capability_evaluation':
+        reputation = _clampInt(reputation + 4, 0, 100);
+        dataQuantity += 150;
     }
     final def =
         researchCatalog.firstWhere((d) => d.id == project.id);
