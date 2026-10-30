@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../game_feel.dart';
 import '../management.dart';
 
 /// لوحة الإدارة الأولية: أساس المحاكاة الإدارية، لا بطاقة حدث.
@@ -26,6 +27,7 @@ class _ManagementScreenState extends State<ManagementScreen>
   ManagementState _state = ManagementState();
   WeekReport? _lastReport;
   String? _saveStatus;
+  bool _soundOn = true;
   late final TabController _tabs;
 
   static const _tabLabels = [
@@ -92,6 +94,11 @@ class _ManagementScreenState extends State<ManagementScreen>
     // كل أسبوع يتقدم يُحفظ تلقائيا، فلا تضيع الإدارة
     // إن أُغلقت اللعبة دون حفظ يدوي.
     _save();
+    if (_state.isBankrupt || _state.leadershipVictory) {
+      GameFeel.playImportant(soundOn: _soundOn);
+    } else {
+      GameFeel.playAction(soundOn: _soundOn);
+    }
   }
 
   Widget _row(String label, String value) => Padding(
@@ -124,6 +131,13 @@ class _ManagementScreenState extends State<ManagementScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('لوحة إدارة الشركة'),
+        actions: [
+          IconButton(
+            icon: Icon(_soundOn ? Icons.volume_up : Icons.volume_off),
+            tooltip: _soundOn ? 'كتم الصوت' : 'تشغيل الصوت',
+            onPressed: () => setState(() => _soundOn = !_soundOn),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabs,
           isScrollable: true,
@@ -142,19 +156,25 @@ class _ManagementScreenState extends State<ManagementScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('الأسبوع ${s.week}',
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                        Text('الترتيب #${s.rank}',
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        AnimatedCountText(
+                          prefix: 'الأسبوع ',
+                          value: s.week,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        AnimatedCountText(
+                          prefix: 'الترتيب #',
+                          value: s.rank,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('النقد: ${s.cash}'),
+                        AnimatedCountText(prefix: 'النقد: ', value: s.cash),
                         Text('المدى: $runway'),
                       ],
                     ),
@@ -162,9 +182,24 @@ class _ManagementScreenState extends State<ManagementScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('النموذج: مستوى ${s.modelLevel}'),
-                        Text('المستخدمون: ${s.users}'),
+                        AnimatedCountText(
+                          prefix: 'النموذج: مستوى ',
+                          value: s.modelLevel,
+                        ),
+                        AnimatedCountText(
+                          prefix: 'المستخدمون: ',
+                          value: s.users,
+                        ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedBar(
+                      label: 'تقدم التدريب',
+                      fraction: s.trainingProgress / 100,
+                    ),
+                    AnimatedBar(
+                      label: 'تقدم البحث',
+                      fraction: s.researchProgress / 100,
                     ),
                     const SizedBox(height: 12),
                     FilledButton(
