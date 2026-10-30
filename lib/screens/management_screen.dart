@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../game_feel.dart';
 import '../goals.dart';
 import '../live_scene.dart';
+import '../tutorial.dart';
 import '../management.dart';
 
 /// لوحة الإدارة الأولية: أساس المحاكاة الإدارية، لا بطاقة حدث.
@@ -31,6 +32,7 @@ class _ManagementScreenState extends State<ManagementScreen>
   String? _saveStatus;
   bool _soundOn = true;
   int _streakWeeks = 0;
+  int _tutorialStep = 0;
   late final TabController _tabs;
 
   static const _tabLabels = [
@@ -53,6 +55,25 @@ class _ManagementScreenState extends State<ManagementScreen>
     super.initState();
     _tabs = TabController(length: _tabLabels.length, vsync: this);
     _loadSaved();
+    _loadTutorialDone();
+  }
+
+  /// يقرأ علامة انتهاء التعليم المحفوظة؛ تعليم منتهٍ لا يعود.
+  Future<void> _loadTutorialDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('ai_tutorial_done_v1') == true && mounted) {
+      setState(() => _tutorialStep = 3);
+    }
+  }
+
+  Future<void> _persistTutorialDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ai_tutorial_done_v1', true);
+  }
+
+  void _finishTutorialStep(int next) {
+    _tutorialStep = next;
+    if (next >= 3) _persistTutorialDone();
   }
 
   /// يستأنف الإدارة المحفوظة على الجهاز إن وُجدت. أي حفظ تالف
@@ -95,6 +116,8 @@ class _ManagementScreenState extends State<ManagementScreen>
     setState(() {
       _lastReport = _state.advanceWeek();
       _streakWeeks = _state.isBankrupt ? 0 : _streakWeeks + 1;
+      _finishTutorialStep(
+          nextTutorialStep(_tutorialStep, TutorialEvent.advanced));
     });
     // كل أسبوع يتقدم يُحفظ تلقائيا، فلا تضيع الإدارة
     // إن أُغلقت اللعبة دون حفظ يدوي.
@@ -104,6 +127,93 @@ class _ManagementScreenState extends State<ManagementScreen>
     } else {
       GameFeel.playAction(soundOn: _soundOn);
     }
+  }
+
+  /// شريط التعليم التفاعلي: يظهر فوق المشهد الحي في تبويب
+  /// نظرة عامة حتى ينتهي، وزراه في الخطوة 2 ينفذان إجراءين
+  /// إداريين حقيقيين (شراء بيانات أو بدء بحث)، لا خيارين
+  /// سرديين، مع زر تخطٍ في كل خطوة فلا يعلق اللاعب أبدا.
+  Widget _tutorialBanner() {
+    if (_tutorialStep >= 3) return const SizedBox.shrink();
+    final s = _state;
+    final affordableData = ManagementState.dataCatalog
+        .where((d) => s.cash >= d.cost)
+        .toList();
+    final affordableResearch = ManagementState.researchCatalog
+        .where((d) =>
+            s.activeResearch == null &&
+            !s.completedResearch.contains(d.id) &&
+            s.cash >= d.cost)
+        .toList();
+    return Card(
+      key: const Key('tutorial-banner'),
+      color: Colors.amber.shade50,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Colors.amber, width: 2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(tutorialStepTitle(_tutorialStep),
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(tutorialStepHint(_tutorialStep)),
+            if (_tutorialStep == 1) ...[
+              const SizedBox(height: 8),
+              if (affordableData.isNotEmpty)
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      s.buyData(affordableData.first.id);
+                      _finishTutorialStep(nextTutorialStep(
+                          _tutorialStep, TutorialEvent.managementAction));
+                    });
+                  },
+                  child: Text(
+                      'اشترِ مجموعة بيانات (${affordableData.first.name} — ${affordableData.first.cost})'),
+                ),
+              if (affordableResearch.isNotEmpty)
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      s.startResearch(affordableResearch.first.id);
+                      _finishTutorialStep(nextTutorialStep(
+                          _tutorialStep, TutorialEvent.managementAction));
+                    });
+                  },
+                  child: Text(
+                      'ابدأ مشروع بحث (${affordableResearch.first.name} — ${affordableResearch.first.cost})'),
+                ),
+              if (affordableData.isEmpty && affordableResearch.isEmpty)
+                const Text(
+                    'نقدك لا يكفي لأي إجراء الآن — اضغط «تخطي هذه الخطوة» ثم تقدم أسبوعا لتجمع إيرادا.'),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _finishTutorialStep(nextTutorialStep(
+                        _tutorialStep, TutorialEvent.managementAction));
+                  });
+                },
+                child: const Text('تخطي هذه الخطوة'),
+              ),
+            ],
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _finishTutorialStep(nextTutorialStep(
+                      _tutorialStep, TutorialEvent.skipped));
+                });
+              },
+              child: const Text('تخطي التعليم'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _row(String label, String value) => Padding(
@@ -207,14 +317,23 @@ class _ManagementScreenState extends State<ManagementScreen>
                       fraction: s.researchProgress / 100,
                     ),
                     const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: s.isBankrupt ? null : _advanceWeek,
+                    Container(
+                      decoration: _tutorialStep == 0 || _tutorialStep == 2
+                          ? BoxDecoration(
+                              border: Border.all(
+                                  color: Colors.amber, width: 3),
+                              borderRadius: BorderRadius.circular(12),
+                            )
+                          : null,
+                      child: FilledButton(
+                        onPressed: s.isBankrupt ? null : _advanceWeek,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         textStyle: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      child: const Text('تقدم أسبوعا ⏭️'),
+                        child: const Text('تقدم أسبوعا ⏭️'),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(
@@ -261,6 +380,8 @@ class _ManagementScreenState extends State<ManagementScreen>
                   const Text('نظرة عامة',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
+                  _tutorialBanner(),
+                  const SizedBox(height: 8),
                   CompanyLiveScene(
                     computeAvailable: s.computeAvailable,
                     computeReserved: s.computeReserved,
