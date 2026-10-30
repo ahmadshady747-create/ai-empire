@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../game_feel.dart';
+import '../goals.dart';
 import '../live_scene.dart';
 import '../management.dart';
 
@@ -29,6 +30,7 @@ class _ManagementScreenState extends State<ManagementScreen>
   WeekReport? _lastReport;
   String? _saveStatus;
   bool _soundOn = true;
+  int _streakWeeks = 0;
   late final TabController _tabs;
 
   static const _tabLabels = [
@@ -43,6 +45,7 @@ class _ManagementScreenState extends State<ManagementScreen>
     'فريق',
     'مالية',
     'مفاهيم',
+    'أهداف',
   ];
 
   @override
@@ -91,6 +94,7 @@ class _ManagementScreenState extends State<ManagementScreen>
   void _advanceWeek() {
     setState(() {
       _lastReport = _state.advanceWeek();
+      _streakWeeks = _state.isBankrupt ? 0 : _streakWeeks + 1;
     });
     // كل أسبوع يتقدم يُحفظ تلقائيا، فلا تضيع الإدارة
     // إن أُغلقت اللعبة دون حفظ يدوي.
@@ -770,6 +774,25 @@ class _ManagementScreenState extends State<ManagementScreen>
                         ),
                       ),
                     ),
+                ]),
+                _panel([
+                  const Text('الأهداف والمكافآت',
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold)),
+                  GoalsPanel(
+                    week: s.week,
+                    users: s.users,
+                    cash: s.cash,
+                    modelLevel: s.modelLevel,
+                    launchedCount: s.launchedProducts.length,
+                    completedResearchCount: s.completedResearch.length,
+                    completedModelCount: s.completedModels.length,
+                    rank: s.rank,
+                    reputation: s.reputation,
+                    isBankrupt: s.isBankrupt,
+                    leadershipVictory: s.leadershipVictory,
+                    streakWeeks: _streakWeeks,
+                  ),
                 ]),
               ],
             ),
