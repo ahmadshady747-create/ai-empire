@@ -7,6 +7,7 @@ import '../game_feel.dart';
 import '../goals.dart';
 import '../live_scene.dart';
 import '../tutorial.dart';
+import '../world_events.dart';
 import '../management.dart';
 
 /// لوحة الإدارة الأولية: أساس المحاكاة الإدارية، لا بطاقة حدث.
@@ -33,6 +34,8 @@ class _ManagementScreenState extends State<ManagementScreen>
   bool _soundOn = true;
   int _streakWeeks = 0;
   int _tutorialStep = 0;
+  bool _eventSceneDismissed = false;
+  String? _eventNote;
   late final TabController _tabs;
 
   static const _tabLabels = [
@@ -118,6 +121,8 @@ class _ManagementScreenState extends State<ManagementScreen>
       _streakWeeks = _state.isBankrupt ? 0 : _streakWeeks + 1;
       _finishTutorialStep(
           nextTutorialStep(_tutorialStep, TutorialEvent.advanced));
+      _eventSceneDismissed = false;
+      _eventNote = null;
     });
     // كل أسبوع يتقدم يُحفظ تلقائيا، فلا تضيع الإدارة
     // إن أُغلقت اللعبة دون حفظ يدوي.
@@ -382,6 +387,62 @@ class _ManagementScreenState extends State<ManagementScreen>
                           fontSize: 20, fontWeight: FontWeight.bold)),
                   _tutorialBanner(),
                   const SizedBox(height: 8),
+                  if (_lastReport != null &&
+                      _lastReport!.worldEvent.isNotEmpty &&
+                      !_eventSceneDismissed)
+                    WorldEventScene(
+                      eventName: _lastReport!.worldEvent,
+                      eventEffect: _lastReport!.lines.firstWhere(
+                        (l) => l.startsWith('حدث عالمي'),
+                        orElse: () =>
+                            'حدث عالمي دوري (سيناريو محاكاة، لا تنبؤ).',
+                      ),
+                      streakWeeks: _streakWeeks,
+                      canBuyCompute: s.cash >= 4000 &&
+                          s.computeAvailable < 200,
+                      canStartResearch: s.activeResearch == null &&
+                          ManagementState.researchCatalog.any((d) =>
+                              !s.completedResearch.contains(d.id) &&
+                              s.cash >= d.cost),
+                      onBuyCompute: () {
+                        setState(() {
+                          s.buyCompute();
+                          _eventSceneDismissed = true;
+                          _eventNote =
+                              'قررت: شراء 25 وحدة حوسبة — حوسبتك المتاحة ارتفعت فورا، وستظهر في المشهد الحي.';
+                        });
+                      },
+                      onStartResearch: () {
+                        final first = ManagementState.researchCatalog
+                            .firstWhere((d) =>
+                                !s.completedResearch.contains(d.id) &&
+                                s.cash >= d.cost);
+                        setState(() {
+                          s.startResearch(first.id);
+                          _eventSceneDismissed = true;
+                          _eventNote =
+                              'قررت: بدء مشروع بحث (${first.name}) — سيتقدم مع الأسابيع التالية.';
+                        });
+                      },
+                      onSaveCash: () {
+                        setState(() {
+                          _eventSceneDismissed = true;
+                          _eventNote =
+                              'قررت: ادخار النقد — لم تنفق شيئا على الحدث، ونقدك محفوظ للأسبوع التالي.';
+                        });
+                      },
+                    ),
+                  if (_lastReport != null &&
+                      _lastReport!.worldEvent.isNotEmpty &&
+                      !_eventSceneDismissed)
+                    const SizedBox(height: 8),
+                  if (_eventNote != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(_eventNote!,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold)),
+                    ),
                   CompanyLiveScene(
                     computeAvailable: s.computeAvailable,
                     computeReserved: s.computeReserved,
