@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../game_feel.dart';
+import '../live_scene.dart';
 import '../management.dart';
 
 /// لوحة الإدارة الأولية: أساس المحاكاة الإدارية، لا بطاقة حدث.
@@ -256,6 +257,22 @@ class _ManagementScreenState extends State<ManagementScreen>
                   const Text('نظرة عامة',
                       style: TextStyle(
                           fontSize: 20, fontWeight: FontWeight.bold)),
+                  CompanyLiveScene(
+                    computeAvailable: s.computeAvailable,
+                    computeReserved: s.computeReserved,
+                    users: s.users,
+                    modelLevel: s.modelLevel,
+                    rivalNames: [
+                      for (final r in s.rivals) r.name,
+                    ],
+                    rivalLevels: [
+                      for (final r in s.rivals) r.modelLevel,
+                    ],
+                    reputation: s.reputation,
+                    isBankrupt: s.isBankrupt,
+                    leadershipVictory: s.leadershipVictory,
+                  ),
+                  const SizedBox(height: 8),
                   _row('السمعة', '${s.reputation} / 100'),
                   _row('أسابيع الصدارة المتتالية', '${s.leadershipWeeks}'),
                   _row('الإيراد الأسبوعي', '${s.weeklyRevenue}'),
