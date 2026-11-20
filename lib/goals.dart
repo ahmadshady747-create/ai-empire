@@ -253,7 +253,7 @@ class GoalsPanel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: EmpireColors.emerald.withOpacity(0.16),
+              color: EmpireColors.emerald.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: EmpireColors.emerald, width: 1.5),
             ),
@@ -271,7 +271,7 @@ class GoalsPanel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: EmpireColors.coral.withOpacity(0.16),
+              color: EmpireColors.coral.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: EmpireColors.coral, width: 1.5),
             ),
@@ -292,11 +292,11 @@ class GoalsPanel extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(
               colors: [
-                EmpireColors.gold.withOpacity(0.16),
+                EmpireColors.gold.withValues(alpha: 0.16),
                 EmpireColors.surface,
               ],
             ),
-            border: Border.all(color: EmpireColors.gold.withOpacity(0.45)),
+            border: Border.all(color: EmpireColors.gold.withValues(alpha: 0.45)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -306,7 +306,7 @@ class GoalsPanel extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: EmpireColors.gold.withOpacity(0.2),
+                      color: EmpireColors.gold.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -392,12 +392,12 @@ class _GoalRow extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: goal.unlocked
-            ? EmpireColors.emerald.withOpacity(0.1)
+            ? EmpireColors.emerald.withValues(alpha: 0.1)
             : EmpireColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: goal.unlocked
-              ? EmpireColors.emerald.withOpacity(0.45)
+              ? EmpireColors.emerald.withValues(alpha: 0.45)
               : EmpireColors.border,
         ),
       ),

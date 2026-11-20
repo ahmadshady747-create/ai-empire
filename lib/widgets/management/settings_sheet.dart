@@ -92,7 +92,7 @@ Future<void> showEmpireSettingsSheet({
                         contentPadding: EdgeInsets.zero,
                         title: const Text('المؤثرات الصوتية واللمسية'),
                         value: soundOn,
-                        activeColor: EmpireColors.cyan,
+                        activeThumbColor: EmpireColors.cyan,
                         onChanged: (_) {
                           onToggleSound();
                           Navigator.of(sheetContext).pop();
@@ -195,7 +195,7 @@ Future<void> showEmpireSettingsSheet({
                         style: OutlinedButton.styleFrom(
                           foregroundColor: EmpireColors.coral,
                           side: BorderSide(
-                            color: EmpireColors.coral.withOpacity(0.5),
+                            color: EmpireColors.coral.withValues(alpha: 0.5),
                           ),
                         ),
                         onPressed: () async {

@@ -94,7 +94,7 @@ class _EmpireTrendChartCardState extends State<EmpireTrendChartCard> {
                     color: (delta >= 0
                             ? EmpireColors.emerald
                             : EmpireColors.coral)
-                        .withOpacity(0.16),
+                        .withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -123,7 +123,7 @@ class _EmpireTrendChartCardState extends State<EmpireTrendChartCard> {
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       decoration: BoxDecoration(
                         color: i == _metricIndex
-                            ? _metrics[i].color.withOpacity(0.18)
+                            ? _metrics[i].color.withValues(alpha: 0.18)
                             : EmpireColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
@@ -244,7 +244,7 @@ class _AreaLinePainter extends CustomPainter {
     final range = (maxVal - minVal).abs() < 1e-6 ? 1.0 : (maxVal - minVal);
 
     final gridPaint = Paint()
-      ..color = EmpireColors.border.withOpacity(0.45)
+      ..color = EmpireColors.border.withValues(alpha: 0.45)
       ..strokeWidth = 0.8;
     for (var i = 0; i <= 2; i++) {
       final y = size.height * (i / 2);
@@ -271,8 +271,8 @@ class _AreaLinePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          color.withOpacity(0.32),
-          color.withOpacity(0.02),
+          color.withValues(alpha: 0.32),
+          color.withValues(alpha: 0.02),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawPath(areaPath, areaPaint);
@@ -293,7 +293,7 @@ class _AreaLinePainter extends CustomPainter {
     canvas.drawCircle(
       last,
       5.5,
-      Paint()..color = color.withOpacity(0.3),
+      Paint()..color = color.withValues(alpha: 0.3),
     );
     canvas.drawCircle(
       last,

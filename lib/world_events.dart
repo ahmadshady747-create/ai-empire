@@ -36,12 +36,12 @@ class WorldEventScene extends StatelessWidget {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           colors: [
-            EmpireColors.sky.withOpacity(0.18),
+            EmpireColors.sky.withValues(alpha: 0.18),
             EmpireColors.surface,
           ],
         ),
         border: Border.all(
-          color: EmpireColors.sky.withOpacity(0.65),
+          color: EmpireColors.sky.withValues(alpha: 0.65),
           width: 1.5,
         ),
       ),
@@ -55,7 +55,7 @@ class WorldEventScene extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: EmpireColors.sky.withOpacity(0.18),
+                    color: EmpireColors.sky.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(

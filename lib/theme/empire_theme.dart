@@ -130,7 +130,7 @@ ThemeData buildEmpireTheme() {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: EmpireColors.surface,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: EmpireColors.cyan.withOpacity(0.16),
+      indicatorColor: EmpireColors.cyan.withValues(alpha: 0.16),
       height: 66,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);

@@ -119,12 +119,12 @@ class _LeaderRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isPlayer
-            ? EmpireColors.cyan.withOpacity(0.1)
+            ? EmpireColors.cyan.withValues(alpha: 0.1)
             : EmpireColors.surfaceElevated,
         borderRadius: BorderRadius.circular(11),
         border: Border.all(
           color: isPlayer
-              ? EmpireColors.cyan.withOpacity(0.55)
+              ? EmpireColors.cyan.withValues(alpha: 0.55)
               : EmpireColors.border,
         ),
       ),

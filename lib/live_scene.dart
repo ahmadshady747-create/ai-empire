@@ -73,18 +73,18 @@ class CompanyLiveScene extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            accent.withOpacity(0.16),
+            accent.withValues(alpha: 0.16),
             EmpireColors.surface,
             EmpireColors.bg,
           ],
         ),
         border: Border.all(
-          color: accent.withOpacity(0.5),
+          color: accent.withValues(alpha: 0.5),
           width: 1.4,
         ),
         boxShadow: [
           BoxShadow(
-            color: accent.withOpacity(0.14),
+            color: accent.withValues(alpha: 0.14),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -110,7 +110,7 @@ class CompanyLiveScene extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: accent.withOpacity(0.8),
+                              color: accent.withValues(alpha: 0.8),
                               blurRadius: 8,
                             ),
                           ],
@@ -131,9 +131,9 @@ class CompanyLiveScene extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.16),
+                      color: accent.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: accent.withOpacity(0.45)),
+                      border: Border.all(color: accent.withValues(alpha: 0.45)),
                     ),
                     child: Text(
                       isBankrupt
@@ -252,7 +252,7 @@ class CompanyLiveScene extends StatelessWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: EmpireColors.sky.withOpacity(0.65),
+                                color: EmpireColors.sky.withValues(alpha: 0.65),
                                 blurRadius: 5,
                               ),
                             ],
@@ -290,7 +290,7 @@ class _CyberSkylineBackdropPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = EmpireColors.border.withOpacity(0.35)
+      ..color = EmpireColors.border.withValues(alpha: 0.35)
       ..strokeWidth = 0.8;
 
     const step = 22.0;
@@ -306,7 +306,7 @@ class _CyberSkylineBackdropPainter extends CustomPainter {
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
         colors: [
-          accent.withOpacity(0.18 + reputationFraction * 0.12),
+          accent.withValues(alpha: 0.18 + reputationFraction * 0.12),
           Colors.transparent,
         ],
       ).createShader(Rect.fromLTWH(0, size.height * 0.45, size.width, size.height * 0.55));
@@ -347,7 +347,7 @@ class _TowerWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: highlight
-                ? color.withOpacity(0.2)
+                ? color.withValues(alpha: 0.2)
                 : EmpireColors.surfaceElevated,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -369,7 +369,7 @@ class _TowerWidget extends StatelessWidget {
               color: color,
               borderRadius: BorderRadius.circular(2),
               boxShadow: [
-                BoxShadow(color: color.withOpacity(0.8), blurRadius: 6),
+                BoxShadow(color: color.withValues(alpha: 0.8), blurRadius: 6),
               ],
             ),
           ),
@@ -386,7 +386,7 @@ class _TowerWidget extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: highlight
-                      ? [color.withOpacity(0.92), color.withOpacity(0.32)]
+                      ? [color.withValues(alpha: 0.92), color.withValues(alpha: 0.32)]
                       : [
                           const Color(0xFF475569),
                           const Color(0xFF1E293B),
@@ -402,7 +402,7 @@ class _TowerWidget extends StatelessWidget {
                 boxShadow: highlight
                     ? [
                         BoxShadow(
-                          color: color.withOpacity(0.35),
+                          color: color.withValues(alpha: 0.35),
                           blurRadius: 12,
                           offset: const Offset(0, 2),
                         ),
@@ -413,8 +413,8 @@ class _TowerWidget extends StatelessWidget {
                 painter: _TowerWindowsPainter(
                   highlight: highlight,
                   windowColor: highlight
-                      ? Colors.white.withOpacity(0.85)
-                      : Colors.white.withOpacity(0.28),
+                      ? Colors.white.withValues(alpha: 0.85)
+                      : Colors.white.withValues(alpha: 0.28),
                 ),
               ),
             );

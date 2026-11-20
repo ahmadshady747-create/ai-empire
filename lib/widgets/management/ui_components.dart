@@ -33,7 +33,7 @@ class EmpireSubTabBar extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: i == selectedIndex
-                      ? EmpireColors.cyan.withOpacity(0.18)
+                      ? EmpireColors.cyan.withValues(alpha: 0.18)
                       : EmpireColors.surface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
@@ -156,9 +156,9 @@ class EmpireInfoBox extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: accent.withOpacity(0.1),
+        color: accent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withOpacity(0.32)),
+        border: Border.all(color: accent.withValues(alpha: 0.32)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +204,7 @@ class EmpireMetricGrid extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: item.accent != null
-                      ? item.accent!.withOpacity(0.4)
+                      ? item.accent!.withValues(alpha: 0.4)
                       : EmpireColors.border,
                 ),
               ),
@@ -261,9 +261,9 @@ class EmpireBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.16),
+        color: color.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         text,
@@ -309,7 +309,7 @@ class EmpireActionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: badgeColor != null
-              ? activeBorder.withOpacity(0.55)
+              ? activeBorder.withValues(alpha: 0.55)
               : EmpireColors.border,
           width: badgeColor != null ? 1.3 : 1,
         ),

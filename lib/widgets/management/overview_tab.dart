@@ -75,10 +75,10 @@ class OverviewTab extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: EmpireColors.gold.withOpacity(0.12),
+        color: EmpireColors.gold.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: EmpireColors.gold.withOpacity(0.65),
+          color: EmpireColors.gold.withValues(alpha: 0.65),
           width: 1.5,
         ),
       ),
@@ -172,9 +172,9 @@ class OverviewTab extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              color: item.color.withOpacity(0.1),
+              color: item.color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(13),
-              border: Border.all(color: item.color.withOpacity(0.45)),
+              border: Border.all(color: item.color.withValues(alpha: 0.45)),
             ),
             child: Row(
               children: [
