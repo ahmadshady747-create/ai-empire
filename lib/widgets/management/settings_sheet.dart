@@ -100,12 +100,17 @@ Future<void> showEmpireSettingsSheet({
                                 ),
                               ),
                               Expanded(
-                                child: Slider(
-                                  value: local.volume,
-                                  activeTrackColor: EmpireColors.cyan,
-                                  onChanged: local.soundEnabled
-                                      ? (v) => update(local.copyWith(volume: v))
-                                      : null,
+                                child: SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    activeTrackColor: EmpireColors.cyan,
+                                  ),
+                                  child: Slider(
+                                    value: local.volume,
+                                    onChanged: local.soundEnabled
+                                        ? (v) =>
+                                            update(local.copyWith(volume: v))
+                                        : null,
+                                  ),
                                 ),
                               ),
                               Text(
