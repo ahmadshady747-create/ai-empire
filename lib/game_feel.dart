@@ -1,12 +1,14 @@
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// طبقة إحساس اللعب (المرحلة 1): عدّادات متحركة وأشرطة متحركة ورد
-/// فعل صوتي/لمسي اختياري، دون أي أصول خارجية ودون إنترنت.
-/// الصوت يستخدم أصوات النظام المدمجة فقط، وإن فشل لا ينهار التطبيق.
-/// لا يغيّر هذا الملف أي رقم من منطق الإدارة؛ هو عرض متحرك للأرقام
-/// الحقيقية نفسها.
-class AnimatedCountText extends StatelessWidget {
+import 'theme/empire_theme.dart';
+
+/// طبقة إحساس اللعب: عدّادات تنتقل بسلاسة من القيمة السابقة
+/// إلى الجديدة دون القفز للصفر، أشرطة تقدم واضحة، ورد فعل
+/// صوتي ولمسي اختياري يعمل محلياً دون أصول خارجية.
+class AnimatedCountText extends StatefulWidget {
   final String prefix;
   final int value;
   final String suffix;
@@ -23,64 +25,135 @@ class AnimatedCountText extends StatelessWidget {
   });
 
   @override
+  State<AnimatedCountText> createState() => _AnimatedCountTextState();
+}
+
+class _AnimatedCountTextState extends State<AnimatedCountText> {
+  late int _beginValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _beginValue = widget.value;
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedCountText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _beginValue = oldWidget.value;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final mergedStyle = (widget.style ?? const TextStyle()).copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return TweenAnimationBuilder<int>(
-      tween: IntTween(begin: 0, end: value),
-      duration: const Duration(milliseconds: 600),
+      tween: IntTween(begin: _beginValue, end: widget.value),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutCubic,
       builder: (context, animatedValue, _) {
         return Text(
-          '$prefix$animatedValue$suffix',
-          style: style,
-          textAlign: textAlign,
+          '${widget.prefix}$animatedValue${widget.suffix}',
+          style: mergedStyle,
+          textAlign: widget.textAlign,
         );
       },
     );
   }
 }
 
-class AnimatedBar extends StatelessWidget {
+class AnimatedBar extends StatefulWidget {
   final String label;
   final double fraction;
   final Color? color;
+  final bool compact;
 
   const AnimatedBar({
     super.key,
     required this.label,
     required this.fraction,
     this.color,
+    this.compact = false,
   });
 
   @override
+  State<AnimatedBar> createState() => _AnimatedBarState();
+}
+
+class _AnimatedBarState extends State<AnimatedBar> {
+  late double _beginFraction;
+
+  @override
+  void initState() {
+    super.initState();
+    _beginFraction = widget.fraction.clamp(0.0, 1.0);
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldClamped = oldWidget.fraction.clamp(0.0, 1.0);
+    final newClamped = widget.fraction.clamp(0.0, 1.0);
+    if (oldClamped != newClamped) {
+      _beginFraction = oldClamped;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final clamped = fraction.clamp(0.0, 1.0);
+    final clamped = widget.fraction.clamp(0.0, 1.0);
+    final barColor = widget.color ?? EmpireColors.cyan;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 14)),
+            Flexible(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: widget.compact ? 12 : 13.5,
+                  color: EmpireColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
             AnimatedCountText(
               prefix: '',
               value: (clamped * 100).round(),
               suffix: '%',
+              style: TextStyle(
+                fontSize: widget.compact ? 12 : 13,
+                fontWeight: FontWeight.w700,
+                color: barColor,
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: widget.compact ? 3 : 5),
         TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: clamped),
-          duration: const Duration(milliseconds: 700),
+          tween: Tween<double>(begin: _beginFraction, end: clamped),
+          duration: const Duration(milliseconds: 550),
+          curve: Curves.easeOutCubic,
           builder: (context, animatedValue, _) {
-            return LinearProgressIndicator(
-              value: animatedValue,
-              color: color,
-              minHeight: 8,
+            return ClipRRect(
               borderRadius: const BorderRadius.all(Radius.circular(8)),
+              child: LinearProgressIndicator(
+                value: animatedValue,
+                color: barColor,
+                backgroundColor: EmpireColors.surfaceElevated,
+                minHeight: widget.compact ? 6 : 9,
+              ),
             );
           },
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: widget.compact ? 4 : 8),
       ],
     );
   }
@@ -93,12 +166,21 @@ class GameFeel {
     if (soundOn) {
       try {
         SystemSound.play(SystemSoundType.click);
-      } catch (_) {
-        // الصوت اختياري: فشله لا يوقف اللعب أبدا.
-      }
+      } catch (_) {}
     }
     try {
       HapticFeedback.lightImpact();
+    } catch (_) {}
+  }
+
+  static void playSuccess({required bool soundOn}) {
+    if (soundOn) {
+      try {
+        SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
+    }
+    try {
+      HapticFeedback.selectionClick();
     } catch (_) {}
   }
 

@@ -1,0 +1,379 @@
+import 'package:flutter/material.dart';
+
+import '../../game_feel.dart';
+import '../../management.dart';
+import '../../theme/empire_theme.dart';
+
+/// شريط القيادة العلوي (HUD) التفاعلي:
+/// يعرض الأسبوع والترتيب والمدى والنقد والنموذج والمستخدمين
+/// مع إمكانية النقر للانتقال السريع، وأزرار "تقدم أسبوعا ⏭️" و"4×" و"حفظ الإدارة".
+class CommandHud extends StatelessWidget {
+  final ManagementState state;
+  final int tutorialStep;
+  final String? saveStatus;
+  final VoidCallback onAdvanceWeek;
+  final VoidCallback onFastForward;
+  final VoidCallback onSave;
+  final void Function(int navIndex, int subIndex) onJump;
+
+  const CommandHud({
+    super.key,
+    required this.state,
+    required this.tutorialStep,
+    required this.saveStatus,
+    required this.onAdvanceWeek,
+    required this.onFastForward,
+    required this.onSave,
+    required this.onJump,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final s = state;
+    final runway =
+        s.runwayWeeks >= 999 ? 'مستدام' : '${s.runwayWeeks} أسبوع';
+    final highlightAdvance = tutorialStep == 0 || tutorialStep == 2;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: EmpireColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: s.isBankrupt
+              ? EmpireColors.coral
+              : s.leadershipVictory
+                  ? EmpireColors.emerald
+                  : EmpireColors.border,
+          width: (s.isBankrupt || s.leadershipVictory) ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.28),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _HudChip(
+                icon: Icons.calendar_today_rounded,
+                color: EmpireColors.cyan,
+                child: AnimatedCountText(
+                  prefix: 'الأسبوع ',
+                  value: s.week,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: EmpireColors.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () => onJump(2, 2),
+                borderRadius: BorderRadius.circular(10),
+                child: _HudChip(
+                  icon: Icons.leaderboard_rounded,
+                  color: EmpireColors.gold,
+                  child: AnimatedCountText(
+                    prefix: 'الترتيب #',
+                    value: s.rank,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: EmpireColors.gold,
+                    ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => onJump(3, 0),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: EmpireColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'المدى: $runway',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: s.runwayWeeks < 4
+                          ? EmpireColors.coral
+                          : EmpireColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _HudStatBox(
+                  icon: Icons.account_balance_wallet_rounded,
+                  color: s.cash < 15000
+                      ? EmpireColors.coral
+                      : EmpireColors.emerald,
+                  onTap: () => onJump(3, 0),
+                  child: AnimatedCountText(
+                    prefix: 'النقد: ',
+                    value: s.cash,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: s.cash < 15000
+                          ? EmpireColors.coral
+                          : EmpireColors.emerald,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _HudStatBox(
+                  icon: Icons.auto_awesome_rounded,
+                  color: EmpireColors.indigo,
+                  onTap: () => onJump(1, 0),
+                  child: AnimatedCountText(
+                    prefix: 'النموذج: مستوى ',
+                    value: s.modelLevel,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: EmpireColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _HudStatBox(
+                  icon: Icons.people_alt_rounded,
+                  color: EmpireColors.sky,
+                  onTap: () => onJump(2, 0),
+                  child: AnimatedCountText(
+                    prefix: 'المستخدمون: ',
+                    value: s.users,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: EmpireColors.sky,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: AnimatedBar(
+                  label: 'تقدم التدريب',
+                  fraction: s.trainingProgress / 100,
+                  color: EmpireColors.cyan,
+                  compact: true,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AnimatedBar(
+                  label: 'تقدم البحث',
+                  fraction: s.researchProgress / 100,
+                  color: EmpireColors.indigo,
+                  compact: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: highlightAdvance
+                      ? BoxDecoration(
+                          border: Border.all(
+                            color: EmpireColors.gold,
+                            width: 2.5,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: EmpireColors.gold.withOpacity(0.35),
+                              blurRadius: 10,
+                            ),
+                          ],
+                        )
+                      : null,
+                  child: FilledButton(
+                    onPressed: s.isBankrupt ? null : onAdvanceWeek,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      textStyle: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    child: const Text('تقدم أسبوعا ⏭️'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Tooltip(
+                message: 'تسريع ذكي حتى 4 أسابيع (يتوقف عند الأحداث أو الأزمات)',
+                child: OutlinedButton(
+                  onPressed: s.isBankrupt ? null : onFastForward,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: const Text('4× ⏩'),
+                ),
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton(
+                onPressed: onSave,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('حفظ الإدارة'),
+              ),
+            ],
+          ),
+          if (saveStatus != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                saveStatus!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: EmpireColors.emerald,
+                ),
+              ),
+            ),
+          if (s.isBankrupt)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'الشركة مفلسة: نفد النقد ونفد الائتمان. البقاء كان الشرط الأول.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: EmpireColors.coral,
+                ),
+              ),
+            ),
+          if (s.leadershipVictory)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'فوز بالصدارة: بلغت الترتيب الأول أربعة أسابيع متتالية بإدارتك.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: EmpireColors.emerald,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HudChip extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final Widget child;
+
+  const _HudChip({
+    required this.icon,
+    required this.color,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _HudStatBox extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _HudStatBox({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: EmpireColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: EmpireColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: child,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

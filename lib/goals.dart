@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'game_feel.dart';
+import 'theme/empire_theme.dart';
 
-/// المرحلة 3 — أهداف ومكافآت مشتقة من أرقام الإدارة نفسها فقط.
-/// لا يضيف هذا الملف أي رقم إدارة جديد ولا يغيّر توازنا:
-/// التحديات عتبات على الأرقام الحقيقية وتتجدد كل 4 أسابيع
-/// (كتلة أسبوعية)، والإنجازات تُفتح عند بلوغ عتبات حقيقية،
-/// والمستوى مجموع نقاط من المستوى والمنتجات والمشاريع المنجزة.
-/// لحظتا الفوز والخسارة هما حالتا الإدارة القائمتان أصلا:
-/// الصدارة (leadershipVictory) والإفلاس (isBankrupt)، وهنا
-/// تظهران بعرض بصري واضح لا بسطر تقرير فقط.
+/// أهداف ومكافآت مشتقة من أرقام الإدارة الحقيقية فقط.
 class GoalItem {
   final String title;
   final int current;
@@ -102,60 +96,71 @@ List<GoalItem> achievements({
 }) {
   return [
     GoalItem(
-        title: 'أول منتج مطلق',
-        current: launchedCount,
-        target: 1,
-        unlocked: launchedCount >= 1),
+      title: 'أول منتج مطلق',
+      current: launchedCount,
+      target: 1,
+      unlocked: launchedCount >= 1,
+    ),
     GoalItem(
-        title: 'أول بحث منجز',
-        current: completedResearchCount,
-        target: 1,
-        unlocked: completedResearchCount >= 1),
+      title: 'أول بحث منجز',
+      current: completedResearchCount,
+      target: 1,
+      unlocked: completedResearchCount >= 1,
+    ),
     GoalItem(
-        title: 'أول وظيفة نموذج منجزة',
-        current: completedModelCount,
-        target: 1,
-        unlocked: completedModelCount >= 1),
+      title: 'أول وظيفة نموذج منجزة',
+      current: completedModelCount,
+      target: 1,
+      unlocked: completedModelCount >= 1,
+    ),
     GoalItem(
-        title: 'ألف مستخدم',
-        current: users,
-        target: 1000,
-        unlocked: users >= 1000),
+      title: 'ألف مستخدم',
+      current: users,
+      target: 1000,
+      unlocked: users >= 1000,
+    ),
     GoalItem(
-        title: 'خمسة آلاف مستخدم',
-        current: users,
-        target: 5000,
-        unlocked: users >= 5000),
+      title: 'خمسة آلاف مستخدم',
+      current: users,
+      target: 5000,
+      unlocked: users >= 5000,
+    ),
     GoalItem(
-        title: 'ضمن الثلاثة الأوائل',
-        current: rank > 0 ? (4 - rank).clamp(0, 3) : 0,
-        target: 1,
-        unlocked: rank >= 1 && rank <= 3),
+      title: 'ضمن الثلاثة الأوائل',
+      current: rank > 0 ? (4 - rank).clamp(0, 3) : 0,
+      target: 1,
+      unlocked: rank >= 1 && rank <= 3,
+    ),
     GoalItem(
-        title: 'عشرة أسابيع دون إفلاس',
-        current: week,
-        target: 10,
-        unlocked: week >= 10),
+      title: 'عشرة أسابيع دون إفلاس',
+      current: week,
+      target: 10,
+      unlocked: week >= 10,
+    ),
     GoalItem(
-        title: 'نقد ربع مليون',
-        current: cash,
-        target: 250000,
-        unlocked: cash >= 250000),
+      title: 'نقد ربع مليون',
+      current: cash,
+      target: 250000,
+      unlocked: cash >= 250000,
+    ),
     GoalItem(
-        title: 'سمعة 80',
-        current: reputation,
-        target: 80,
-        unlocked: reputation >= 80),
+      title: 'سمعة 80',
+      current: reputation,
+      target: 80,
+      unlocked: reputation >= 80,
+    ),
     GoalItem(
-        title: 'نموذج مستوى 5',
-        current: modelLevel,
-        target: 5,
-        unlocked: modelLevel >= 5),
+      title: 'نموذج مستوى 5',
+      current: modelLevel,
+      target: 5,
+      unlocked: modelLevel >= 5,
+    ),
     GoalItem(
-        title: 'فوز الصدارة',
-        current: leadershipVictory ? 1 : 0,
-        target: 1,
-        unlocked: leadershipVictory),
+      title: 'فوز الصدارة',
+      current: leadershipVictory ? 1 : 0,
+      target: 1,
+      unlocked: leadershipVictory,
+    ),
   ];
 }
 
@@ -174,8 +179,7 @@ int levelFromPoints(int points) => 1 + points ~/ 5;
 
 double levelProgress(int points) => (points % 5) / 5;
 
-/// لوحة الأهداف: مستوى وترتيب مرئي، وتحديات أسبوعية وشهرية،
-/// وإنجازات، وشريط فوز/خسارة واضح عند تحقق أي منهما.
+/// لوحة الأهداف والمكافآت بتصميم بطاقات تقدم داكنة.
 class GoalsPanel extends StatelessWidget {
   final int week;
   final int users;
@@ -216,15 +220,17 @@ class GoalsPanel extends StatelessWidget {
     );
     final level = levelFromPoints(points);
     final weekly = weeklyChallenges(
-        week: week,
-        users: users,
-        modelLevel: modelLevel,
-        launchedCount: launchedCount);
+      week: week,
+      users: users,
+      modelLevel: modelLevel,
+      launchedCount: launchedCount,
+    );
     final monthly = monthlyChallenges(
-        week: week,
-        rank: rank,
-        reputation: reputation,
-        completedResearchCount: completedResearchCount);
+      week: week,
+      rank: rank,
+      reputation: reputation,
+      completedResearchCount: completedResearchCount,
+    );
     final all = achievements(
       week: week,
       users: users,
@@ -238,79 +244,137 @@ class GoalsPanel extends StatelessWidget {
       leadershipVictory: leadershipVictory,
     );
     final unlockedCount = all.where((g) => g.unlocked).length;
+
     return Column(
       key: const Key('goals-panel'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (leadershipVictory)
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.green.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green, width: 2),
+              color: EmpireColors.emerald.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: EmpireColors.emerald, width: 1.5),
             ),
             child: const Text(
               'لحظة فوز: أنت في الصدارة! بلغت الترتيب الأول أربعة أسابيع متتالية بإدارتك.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: EmpireColors.emerald,
+              ),
             ),
           ),
         if (isBankrupt)
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.red.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.red, width: 2),
+              color: EmpireColors.coral.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: EmpireColors.coral, width: 1.5),
             ),
             child: const Text(
               'لحظة خسارة: الشركة مفلسة. نفد النقد ونفد الائتمان — البقاء كان الشرط الأول.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: EmpireColors.coral,
+              ),
             ),
           ),
         if (leadershipVictory || isBankrupt) const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('مستواك: $level — الترتيب #$rank — سلسلة أسابيع: $streakWeeks',
-                    style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                AnimatedBar(
-                  label: 'تقدمك نحو المستوى ${level + 1}',
-                  fraction: levelProgress(points),
-                  color: Colors.amber.shade700,
-                ),
-                Text('إنجازات مفتوحة: $unlockedCount من ${all.length}',
-                    style: const TextStyle(fontSize: 14)),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [
+                EmpireColors.gold.withOpacity(0.16),
+                EmpireColors.surface,
               ],
             ),
+            border: Border.all(color: EmpireColors.gold.withOpacity(0.45)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: EmpireColors.gold.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.military_tech_rounded,
+                      color: EmpireColors.gold,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'مستواك: $level — الترتيب #$rank — سلسلة أسابيع: $streakWeeks',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: EmpireColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              AnimatedBar(
+                label: 'تقدمك نحو المستوى ${level + 1}',
+                fraction: levelProgress(points),
+                color: EmpireColors.gold,
+              ),
+              Text(
+                'إنجازات مفتوحة: $unlockedCount من ${all.length}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: EmpireColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        const Text('تحديات الأسبوع (تتجدد كل 4 أسابيع)',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        const _GoalsSectionTitle('تحديات الأسبوع (تتجدد كل 4 أسابيع)'),
         for (final g in weekly) _GoalRow(goal: g),
-        const SizedBox(height: 12),
-        const Text('تحديات الشهر',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 14),
+        const _GoalsSectionTitle('تحديات الشهر'),
         for (final g in monthly) _GoalRow(goal: g),
-        const SizedBox(height: 12),
-        const Text('الإنجازات',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 14),
+        const _GoalsSectionTitle('الإنجازات'),
         for (final g in all) _GoalRow(goal: g),
       ],
+    );
+  }
+}
+
+class _GoalsSectionTitle extends StatelessWidget {
+  final String text;
+  const _GoalsSectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: EmpireColors.textPrimary,
+        ),
+      ),
     );
   }
 }
@@ -322,38 +386,62 @@ class _GoalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final accent = goal.unlocked ? EmpireColors.emerald : EmpireColors.cyan;
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      color: goal.unlocked ? Colors.green.shade50 : null,
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  goal.unlocked ? Icons.emoji_events : Icons.lock_outline,
-                  color: goal.unlocked ? Colors.amber.shade800 : Colors.grey,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(goal.title,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.bold)),
-                ),
-                Text('${goal.current} / ${goal.target}',
-                    style: const TextStyle(fontSize: 14)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            AnimatedBar(
-              label: goal.unlocked ? 'مكتمل' : 'التقدم',
-              fraction: goal.progress,
-              color: goal.unlocked ? Colors.green : Colors.teal,
-            ),
-          ],
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: goal.unlocked
+            ? EmpireColors.emerald.withOpacity(0.1)
+            : EmpireColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: goal.unlocked
+              ? EmpireColors.emerald.withOpacity(0.45)
+              : EmpireColors.border,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                goal.unlocked ? Icons.emoji_events_rounded : Icons.lock_outline,
+                size: 20,
+                color: goal.unlocked
+                    ? EmpireColors.gold
+                    : EmpireColors.textMuted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  goal.title,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: EmpireColors.textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                '${goal.current} / ${goal.target}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          AnimatedBar(
+            label: goal.unlocked ? 'مكتمل' : 'التقدم',
+            fraction: goal.progress,
+            color: accent,
+            compact: true,
+          ),
+        ],
       ),
     );
   }

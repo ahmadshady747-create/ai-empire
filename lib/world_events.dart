@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// المرحلة 5 — مشهد حدث العالم التفاعلي: يظهر بعد الأسبوع
-/// الذي وقع فيه حدث عالمي (كل 8 أسابيع، يدور بين ثلاثة
-/// سيناريوهات)، لا كسطر أخبار فقط، بل كمشهد بقرار إداري.
-/// القرارات الثلاثة كلها إجراءات إدارة قائمة أصلا، لا خيارات
-/// سردية تحسم اللعب: شراء حوسبة، أو بدء بحث، أو ادخار النقد
-/// بعدم الإنفاق. أثر القرار يظهر فورا في أرقام الإدارة
-/// والمشهد الحي، ويُعرض ملخصه في ملاحظة القرار التي يعيدها
-/// الأب. سلسلة الأسابيع المعروضة هنا هي سلسلة الإدارة نفسها
-/// من لوحة الأهداف، فالاستمرارية مرئية في المشهد نفسه.
+import 'theme/empire_theme.dart';
+
+/// مشهد حدث العالم التفاعلي: بطاقة طوارئ/حدث عالمي داكنة
+/// تعرض القرارات الإدارية الثلاثة بوضوح وبأثر فوري على أرقام الشركة.
 class WorldEventScene extends StatelessWidget {
   final String eventName;
   final String eventEffect;
@@ -33,56 +28,123 @@ class WorldEventScene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       key: const Key('world-event-scene'),
-      color: Colors.blue.shade50,
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(color: Colors.blue, width: 2),
-        borderRadius: BorderRadius.circular(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [
+            EmpireColors.sky.withOpacity(0.18),
+            EmpireColors.surface,
+          ],
+        ),
+        border: Border.all(
+          color: EmpireColors.sky.withOpacity(0.65),
+          width: 1.5,
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.public, size: 28, color: Colors.blue),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text('مشهد حدث العالم',
-                      style: TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: EmpireColors.sky.withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.public_rounded,
+                    size: 22,
+                    color: EmpireColors.sky,
+                  ),
                 ),
-                Icon(Icons.factory, size: 28, color: Colors.blueGrey),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'مشهد حدث العالم',
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      color: EmpireColors.sky,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: EmpireColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: EmpireColors.border),
+                  ),
+                  child: Text(
+                    'سلسلة أسابيعك دون إفلاس: $streakWeeks',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: EmpireColors.gold,
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(eventName,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(eventEffect),
-            Text('سلسلة أسابيعك دون إفلاس: $streakWeeks',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
+            Text(
+              eventName,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: EmpireColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              eventEffect,
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: EmpireColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
             const Text(
-                'كيف ترد إداريا؟ اختر إجراء واحدا — أثره يظهر فورا في أرقامك:'),
-            const SizedBox(height: 8),
-            OutlinedButton(
+              'كيف ترد إداريا؟ اختر إجراء واحدا — أثره يظهر فورا في أرقامك:',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: EmpireColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
               onPressed: canBuyCompute ? onBuyCompute : null,
-              child: Text(canBuyCompute
-                  ? 'استثمر في الحوسبة: شراء 25 وحدة (4000)'
-                  : 'شراء الحوسبة غير متاح الآن'),
+              icon: const Icon(Icons.memory_rounded, size: 18),
+              label: Text(
+                canBuyCompute
+                    ? 'استثمر في الحوسبة: شراء 25 وحدة (4000)'
+                    : 'شراء الحوسبة غير متاح الآن',
+              ),
             ),
-            OutlinedButton(
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
               onPressed: canStartResearch ? onStartResearch : null,
-              child: Text(canStartResearch
-                  ? 'ركّز على البحث: ابدأ أول مشروع بحث بمقدورك'
-                  : 'بدء البحث غير متاح الآن'),
+              icon: const Icon(Icons.science_rounded, size: 18),
+              label: Text(
+                canStartResearch
+                    ? 'ركّز على البحث: ابدأ أول مشروع بحث بمقدورك'
+                    : 'بدء البحث غير متاح الآن',
+              ),
             ),
-            OutlinedButton(
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
               onPressed: onSaveCash,
-              child: const Text('ادّخر النقد: لا إجراء الآن'),
+              icon: const Icon(Icons.savings_rounded, size: 18),
+              label: const Text('ادّخر النقد: لا إجراء الآن'),
             ),
           ],
         ),

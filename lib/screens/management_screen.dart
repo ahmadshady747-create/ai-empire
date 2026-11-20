@@ -3,20 +3,25 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../analytics/career_stats.dart';
+import '../analytics/company_history.dart';
 import '../game_feel.dart';
-import '../goals.dart';
-import '../live_scene.dart';
-import '../tutorial.dart';
-import '../world_events.dart';
 import '../management.dart';
+import '../theme/empire_theme.dart';
+import '../tutorial.dart';
+import '../widgets/management/command_hud.dart';
+import '../widgets/management/company_tab.dart';
+import '../widgets/management/endgame_modal.dart';
+import '../widgets/management/market_tab.dart';
+import '../widgets/management/overview_tab.dart';
+import '../widgets/management/progress_tab.dart';
+import '../widgets/management/settings_sheet.dart';
+import '../widgets/management/tech_tab.dart';
 
-/// لوحة الإدارة الأولية: أساس المحاكاة الإدارية، لا بطاقة حدث.
-/// ثمانية تبويبات تعرض الموارد الحقيقية، وزر واحد "تقدم أسبوعا"
-/// ينفذ الأسبوع ويعرض تقريره. الأفعال الإدارية التفصيلية (شراء
-/// بيانات، حجز GPU، إطلاق منتج...) تأتي في جولات لاحقة، تبويبا تبويبا.
-/// الحفظ على الجهاز من اللوحة نفسها: كل أسبوع يتقدم يُحفظ
-/// تلقائيا، وزر "حفظ الإدارة" يحفظ يدويا، وعند فتح اللوحة من
-/// جديد تُستأنف الإدارة المحفوظة إن وُجدت، لا تبدأ من الصفر.
+/// لوحة إدارة "إمبراطورية الذكاء الاصطناعي":
+/// 5 محاور رئيسية، شريط قيادة HUD تفاعلي، تسريع ذكي 4×،
+/// رسوم بيانية تاريخية، مستشار استراتيجي، سجل مسيرة دائم،
+/// مستويات صعوبة، نسخ احتياطي واستعادة، وإعدادات خصوصية كاملة للمتاجر.
 class ManagementScreen extends StatefulWidget {
   const ManagementScreen({super.key});
 
@@ -24,73 +29,101 @@ class ManagementScreen extends StatefulWidget {
   State<ManagementScreen> createState() => _ManagementScreenState();
 }
 
-class _ManagementScreenState extends State<ManagementScreen>
-    with SingleTickerProviderStateMixin {
+class _ManagementScreenState extends State<ManagementScreen> {
   static const _saveKey = 'ai_management_v1';
+  static const _historyKey = 'ai_management_history_v1';
+  static const _nameKey = 'ai_company_name_v1';
+  static const _careerKey = 'ai_career_stats_v1';
+  static const _tutorialKey = 'ai_tutorial_done_v1';
 
   ManagementState _state = ManagementState();
+  CareerStats _career = const CareerStats();
+  String _companyName = 'إمبراطورية الذكاء';
   WeekReport? _lastReport;
+  WeekDelta? _lastDelta;
+  List<WeekSnapshot> _history = [];
   String? _saveStatus;
   bool _soundOn = true;
   int _streakWeeks = 0;
   int _tutorialStep = 0;
   bool _eventSceneDismissed = false;
   String? _eventNote;
-  late final TabController _tabs;
+  bool _endgameShown = false;
 
-  static const _tabLabels = [
-    'نظرة عامة',
-    'بحث',
-    'بيانات',
-    'حوسبة',
-    'نماذج',
-    'منتجات',
-    'خدمات',
-    'منافسون',
-    'فريق',
-    'مالية',
-    'مفاهيم',
-    'أهداف',
-  ];
+  int _navIndex = 0;
+  int _techSub = 0;
+  int _marketSub = 0;
+  int _companySub = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: _tabLabels.length, vsync: this);
+    _history = [WeekSnapshot.fromState(_state)];
     _loadSaved();
     _loadTutorialDone();
   }
 
-  /// يقرأ علامة انتهاء التعليم المحفوظة؛ تعليم منتهٍ لا يعود.
   Future<void> _loadTutorialDone() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('ai_tutorial_done_v1') == true && mounted) {
+    if (prefs.getBool(_tutorialKey) == true && mounted) {
       setState(() => _tutorialStep = 3);
     }
   }
 
-  Future<void> _persistTutorialDone() async {
+  Future<void> _persistTutorialDone(bool done) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('ai_tutorial_done_v1', true);
+    await prefs.setBool(_tutorialKey, done);
   }
 
   void _finishTutorialStep(int next) {
     _tutorialStep = next;
-    if (next >= 3) _persistTutorialDone();
+    if (next >= 3) _persistTutorialDone(true);
   }
 
-  /// يستأنف الإدارة المحفوظة على الجهاز إن وُجدت. أي حفظ تالف
-  /// يُتجاهل بهدوء وتبدأ إدارة جديدة، فلا يكسر حفظ قديم اللعب.
   Future<void> _loadSaved() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedName = prefs.getString(_nameKey);
+    if (savedName != null && savedName.trim().isNotEmpty && mounted) {
+      setState(() => _companyName = savedName.trim());
+    }
+
+    final rawCareer = prefs.getString(_careerKey);
+    if (rawCareer != null) {
+      try {
+        final restoredCareer = CareerStats.fromJson(
+          jsonDecode(rawCareer) as Map<String, dynamic>,
+        );
+        if (mounted) {
+          setState(() => _career = restoredCareer);
+        }
+      } catch (_) {}
+    }
+
     final raw = prefs.getString(_saveKey);
     if (raw == null) return;
     try {
       final restored =
           ManagementState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      List<WeekSnapshot> restoredHistory = [WeekSnapshot.fromState(restored)];
+      final rawHist = prefs.getString(_historyKey);
+      if (rawHist != null) {
+        try {
+          final decoded = jsonDecode(rawHist) as List<dynamic>;
+          final parsed = decoded
+              .whereType<Map<String, dynamic>>()
+              .map(WeekSnapshot.fromJson)
+              .toList();
+          if (parsed.isNotEmpty) {
+            restoredHistory = parsed;
+          }
+        } catch (_) {}
+      }
       if (!mounted) return;
       setState(() {
         _state = restored;
+        _history = restoredHistory;
+        _career = _career.recordProgress(restored);
+        _endgameShown = restored.isBankrupt || restored.leadershipVictory;
         _saveStatus =
             'تم استئناف إدارة محفوظة — الأسبوع ${restored.week}، النقد ${restored.cash}.';
       });
@@ -99,1131 +132,496 @@ class _ManagementScreenState extends State<ManagementScreen>
     }
   }
 
-  /// يحفظ حالة الإدارة الحالية على الجهاز ويعرض تأكيدا.
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_saveKey, jsonEncode(_state.toJson()));
+    await prefs.setString(
+      _historyKey,
+      jsonEncode(_history.map((e) => e.toJson()).toList()),
+    );
+    await prefs.setString(_nameKey, _companyName);
+    await prefs.setString(_careerKey, jsonEncode(_career.toJson()));
     if (!mounted) return;
     setState(() {
       _saveStatus = 'تم حفظ الإدارة (الأسبوع ${_state.week}).';
     });
   }
 
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
+  void _recordSnapshot() {
+    final snap = WeekSnapshot.fromState(_state);
+    if (_history.isNotEmpty && _history.last.week == snap.week) {
+      _history[_history.length - 1] = snap;
+    } else {
+      _history.add(snap);
+      if (_history.length > 40) {
+        _history = _history.sublist(_history.length - 40);
+      }
+    }
+    _career = _career.recordProgress(_state);
   }
 
-  void _advanceWeek() {
+  void _jumpTo(int navIndex, int subIndex) {
     setState(() {
-      _lastReport = _state.advanceWeek();
-      _streakWeeks = _state.isBankrupt ? 0 : _streakWeeks + 1;
-      _finishTutorialStep(
-          nextTutorialStep(_tutorialStep, TutorialEvent.advanced));
-      _eventSceneDismissed = false;
-      _eventNote = null;
+      _navIndex = navIndex;
+      if (navIndex == 1) _techSub = subIndex;
+      if (navIndex == 2) _marketSub = subIndex;
+      if (navIndex == 3) _companySub = subIndex;
     });
-    // كل أسبوع يتقدم يُحفظ تلقائيا، فلا تضيع الإدارة
-    // إن أُغلقت اللعبة دون حفظ يدوي.
+    GameFeel.playSuccess(soundOn: _soundOn);
+  }
+
+  void _mutate(VoidCallback action) {
+    setState(() {
+      action();
+      _recordSnapshot();
+    });
+    GameFeel.playSuccess(soundOn: _soundOn);
+  }
+
+  void _advanceWeeks(int count) {
+    if (_state.isBankrupt) return;
+    final prevSnap = WeekSnapshot.fromState(_state);
+    final wasEnded = _state.isBankrupt || _state.leadershipVictory;
+
+    setState(() {
+      for (var i = 0; i < count; i++) {
+        if (_state.isBankrupt) break;
+        _lastReport = _state.advanceWeek();
+        _streakWeeks = _state.isBankrupt ? 0 : _streakWeeks + 1;
+        _finishTutorialStep(
+          nextTutorialStep(_tutorialStep, TutorialEvent.advanced),
+        );
+        _eventSceneDismissed = false;
+        _eventNote = null;
+        _recordSnapshot();
+
+        if (_lastReport!.worldEvent.isNotEmpty ||
+            _state.isBankrupt ||
+            _state.leadershipVictory) {
+          break;
+        }
+      }
+      _lastDelta = WeekDelta.between(prevSnap, WeekSnapshot.fromState(_state));
+      if (!wasEnded && (_state.isBankrupt || _state.leadershipVictory)) {
+        _career = _career.recordOutcome(
+          victory: _state.leadershipVictory && !_state.isBankrupt,
+          bankrupt: _state.isBankrupt,
+        );
+      }
+    });
+
     _save();
     if (_state.isBankrupt || _state.leadershipVictory) {
       GameFeel.playImportant(soundOn: _soundOn);
+      if (!wasEnded && !_endgameShown && mounted) {
+        _endgameShown = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showEndgameSummaryDialog(
+            context: context,
+            companyName: _companyName,
+            state: _state,
+            history: _history,
+            onStartNew: () => _startNewEmpire(startingCash: 150000),
+          );
+        });
+      }
     } else {
       GameFeel.playAction(soundOn: _soundOn);
     }
   }
 
-  /// شريط التعليم التفاعلي: يظهر فوق المشهد الحي في تبويب
-  /// نظرة عامة حتى ينتهي، وزراه في الخطوة 2 ينفذان إجراءين
-  /// إداريين حقيقيين (شراء بيانات أو بدء بحث)، لا خيارين
-  /// سرديين، مع زر تخطٍ في كل خطوة فلا يعلق اللاعب أبدا.
-  Widget _tutorialBanner() {
-    if (_tutorialStep >= 3) return const SizedBox.shrink();
-    final s = _state;
-    final affordableData = ManagementState.dataCatalog
-        .where((d) => s.cash >= d.cost)
-        .toList();
-    final affordableResearch = ManagementState.researchCatalog
-        .where((d) =>
-            s.activeResearch == null &&
-            !s.completedResearch.contains(d.id) &&
-            s.cash >= d.cost)
-        .toList();
-    return Card(
-      key: const Key('tutorial-banner'),
-      color: Colors.amber.shade50,
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(color: Colors.amber, width: 2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(tutorialStepTitle(_tutorialStep),
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(tutorialStepHint(_tutorialStep)),
-            if (_tutorialStep == 1) ...[
-              const SizedBox(height: 8),
-              if (affordableData.isNotEmpty)
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      s.buyData(affordableData.first.id);
-                      _finishTutorialStep(nextTutorialStep(
-                          _tutorialStep, TutorialEvent.managementAction));
-                    });
-                  },
-                  child: Text(
-                      'اشترِ مجموعة بيانات (${affordableData.first.name} — ${affordableData.first.cost})'),
-                ),
-              if (affordableResearch.isNotEmpty)
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      s.startResearch(affordableResearch.first.id);
-                      _finishTutorialStep(nextTutorialStep(
-                          _tutorialStep, TutorialEvent.managementAction));
-                    });
-                  },
-                  child: Text(
-                      'ابدأ مشروع بحث (${affordableResearch.first.name} — ${affordableResearch.first.cost})'),
-                ),
-              if (affordableData.isEmpty && affordableResearch.isEmpty)
-                const Text(
-                    'نقدك لا يكفي لأي إجراء الآن — اضغط «تخطي هذه الخطوة» ثم تقدم أسبوعا لتجمع إيرادا.'),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _finishTutorialStep(nextTutorialStep(
-                        _tutorialStep, TutorialEvent.managementAction));
-                  });
-                },
-                child: const Text('تخطي هذه الخطوة'),
-              ),
-            ],
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _finishTutorialStep(nextTutorialStep(
-                      _tutorialStep, TutorialEvent.skipped));
-                });
-              },
-              child: const Text('تخطي التعليم'),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _startNewEmpire({required int startingCash}) async {
+    setState(() {
+      _state = ManagementState(cash: startingCash);
+      _career = _career.recordNewRun().recordProgress(_state);
+      _lastReport = null;
+      _lastDelta = null;
+      _history = [WeekSnapshot.fromState(_state)];
+      _streakWeeks = 0;
+      _eventSceneDismissed = false;
+      _eventNote = null;
+      _endgameShown = false;
+      _saveStatus = 'بدأت شركة جديدة من الأسبوع 1 برأس مال $startingCash.';
+    });
+    await _save();
   }
 
-  Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 16)),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
+  Future<void> _confirmReset() async {
+    final startingCash = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: EmpireColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: EmpireColors.border),
         ),
-      );
-
-  Widget _panel(List<Widget> children) => SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+        title: const Text('بدء إمبراطورية جديدة'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final s = _state;
-    final runway = s.runwayWeeks >= 999
-        ? 'مستدام'
-        : '${s.runwayWeeks} أسبوع';
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('لوحة إدارة الشركة'),
-        actions: [
-          IconButton(
-            icon: Icon(_soundOn ? Icons.volume_up : Icons.volume_off),
-            tooltip: _soundOn ? 'كتم الصوت' : 'تشغيل الصوت',
-            onPressed: () => setState(() => _soundOn = !_soundOn),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          tabs: [for (final label in _tabLabels) Tab(text: label)],
-        ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        AnimatedCountText(
-                          prefix: 'الأسبوع ',
-                          value: s.week,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        AnimatedCountText(
-                          prefix: 'الترتيب #',
-                          value: s.rank,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        AnimatedCountText(prefix: 'النقد: ', value: s.cash),
-                        Text('المدى: $runway'),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        AnimatedCountText(
-                          prefix: 'النموذج: مستوى ',
-                          value: s.modelLevel,
-                        ),
-                        AnimatedCountText(
-                          prefix: 'المستخدمون: ',
-                          value: s.users,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    AnimatedBar(
-                      label: 'تقدم التدريب',
-                      fraction: s.trainingProgress / 100,
-                    ),
-                    AnimatedBar(
-                      label: 'تقدم البحث',
-                      fraction: s.researchProgress / 100,
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      decoration: _tutorialStep == 0 || _tutorialStep == 2
-                          ? BoxDecoration(
-                              border: Border.all(
-                                  color: Colors.amber, width: 3),
-                              borderRadius: BorderRadius.circular(12),
-                            )
-                          : null,
-                      child: FilledButton(
-                        onPressed: s.isBankrupt ? null : _advanceWeek,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        textStyle: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                        child: const Text('تقدم أسبوعا ⏭️'),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: _save,
-                      child: const Text('حفظ الإدارة'),
-                    ),
-                    if (_saveStatus != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          _saveStatus!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.green),
-                        ),
-                      ),
-                    if (s.isBankrupt)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'الشركة مفلسة: نفد النقد ونفد الائتمان. البقاء كان الشرط الأول.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    if (s.leadershipVictory)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'فوز بالصدارة: بلغت الترتيب الأول أربعة أسابيع متتالية بإدارتك.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.green),
-                        ),
-                      ),
-                  ],
-                ),
+          children: [
+            const Text(
+              'اختر سيناريو الانطلاق (سيبقى سجل مسيرتك الدائم محفوظاً):',
+              style: TextStyle(
+                fontSize: 13,
+                color: EmpireColors.textSecondary,
               ),
             ),
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _panel([
-                  const Text('نظرة عامة',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _tutorialBanner(),
-                  const SizedBox(height: 8),
-                  if (_lastReport != null &&
-                      _lastReport!.worldEvent.isNotEmpty &&
-                      !_eventSceneDismissed)
-                    WorldEventScene(
-                      eventName: _lastReport!.worldEvent,
-                      eventEffect: _lastReport!.lines.firstWhere(
-                        (l) => l.startsWith('حدث عالمي'),
-                        orElse: () =>
-                            'حدث عالمي دوري (سيناريو محاكاة، لا تنبؤ).',
-                      ),
-                      streakWeeks: _streakWeeks,
-                      canBuyCompute: s.cash >= 4000 &&
-                          s.computeAvailable < 200,
-                      canStartResearch: s.activeResearch == null &&
-                          ManagementState.researchCatalog.any((d) =>
-                              !s.completedResearch.contains(d.id) &&
-                              s.cash >= d.cost),
-                      onBuyCompute: () {
-                        setState(() {
-                          s.buyCompute();
-                          _eventSceneDismissed = true;
-                          _eventNote =
-                              'قررت: شراء 25 وحدة حوسبة — حوسبتك المتاحة ارتفعت فورا، وستظهر في المشهد الحي.';
-                        });
-                      },
-                      onStartResearch: () {
-                        final first = ManagementState.researchCatalog
-                            .firstWhere((d) =>
-                                !s.completedResearch.contains(d.id) &&
-                                s.cash >= d.cost);
-                        setState(() {
-                          s.startResearch(first.id);
-                          _eventSceneDismissed = true;
-                          _eventNote =
-                              'قررت: بدء مشروع بحث (${first.name}) — سيتقدم مع الأسابيع التالية.';
-                        });
-                      },
-                      onSaveCash: () {
-                        setState(() {
-                          _eventSceneDismissed = true;
-                          _eventNote =
-                              'قررت: ادخار النقد — لم تنفق شيئا على الحدث، ونقدك محفوظ للأسبوع التالي.';
-                        });
-                      },
-                    ),
-                  if (_lastReport != null &&
-                      _lastReport!.worldEvent.isNotEmpty &&
-                      !_eventSceneDismissed)
-                    const SizedBox(height: 8),
-                  if (_eventNote != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(_eventNote!,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold)),
-                    ),
-                  CompanyLiveScene(
-                    computeAvailable: s.computeAvailable,
-                    computeReserved: s.computeReserved,
-                    users: s.users,
-                    modelLevel: s.modelLevel,
-                    rivalNames: [
-                      for (final r in s.rivals) r.name,
-                    ],
-                    rivalLevels: [
-                      for (final r in s.rivals) r.modelLevel,
-                    ],
-                    reputation: s.reputation,
-                    isBankrupt: s.isBankrupt,
-                    leadershipVictory: s.leadershipVictory,
-                  ),
-                  const SizedBox(height: 8),
-                  _row('السمعة', '${s.reputation} / 100'),
-                  _row('أسابيع الصدارة المتتالية', '${s.leadershipWeeks}'),
-                  _row('الإيراد الأسبوعي', '${s.weeklyRevenue}'),
-                  _row('التكلفة الأسبوعية', '${s.weeklyCost}'),
-                  _row('صافي الأسبوع', '${s.weeklyNet}'),
-                  if (s.lastWorldEvent.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'آخر حدث عالمي: ${s.lastWorldEvent} — سيناريو محاكاة مستوحى من اتجاهات عامة، ليس بيانات رسمية ولا تنبؤات.',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  const Text('أخبار الأسبوع الأخير:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
-                  if (_lastReport == null)
-                    const Text(
-                        'لم يمر أسبوع بعد. اضغط "تقدم أسبوعا" لترى أول تقرير.')
-                  else
-                    for (final line in _lastReport!.lines)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Text('• $line'),
-                      ),
-                ]),
-                _panel([
-                  const Text('البحث — مشاريع بأثمان ومدد',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _row('تقدم البحث', '${s.researchProgress} / 100'),
-                  _row('تقدم التدريب', '${s.trainingProgress} / 100'),
-                  _row('مكافأة البحث الدائمة', '+${s.researchBoost}'),
-                  _row('مكافأة التدريب الدائمة', '+${s.trainingBoost}'),
-                  _row('مكافأة نمو المستخدمين', '+${s.userGrowthBoost}'),
-                  const Text(
-                      'عند اكتمال البحث أو التدريب يرتفع مستوى النموذج درجة. مشروع بحثي واحد نشط فقط: اختر اتجاهك، فالثمن يُدفع مقدما والتأثير دائم ويقوّي نظاما آخر.'),
-                  const SizedBox(height: 12),
-                  if (s.activeResearch != null)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                                'مشروع نشط: ${s.activeResearch!.name}',
-                                style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold)),
-                            Text(
-                                'الأسبوع ${s.activeResearch!.weeksDone} من ${s.activeResearch!.durationWeeks}'),
-                            const SizedBox(height: 6),
-                            LinearProgressIndicator(
-                              value: s.activeResearch!.weeksDone /
-                                  s.activeResearch!.durationWeeks,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  for (final def in ManagementState.researchCatalog)
-                    _ResearchRow(
-                      def: def,
-                      active: s.activeResearch?.id == def.id,
-                      done: s.completedResearch.contains(def.id),
-                      canAfford: s.cash >= def.cost,
-                      anyActive: s.activeResearch != null,
-                      onStart: () {
-                        setState(() {
-                          s.startResearch(def.id);
-                        });
-                      },
-                    ),
-                ]),
-                _panel([
-                  const Text('البيانات — شراء وتنظيف وتجديد',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _row('الكمية', '${s.dataQuantity}'),
-                  _row('الجودة', '${s.dataQuality} / 100'),
-                  _row('الحداثة', '${s.dataFreshness} / 100'),
-                  const Text(
-                      'الحداثة تتقادم نقطتين كل أسبوع. جودة منخفضة تحت 40 تبطئ التدريب، وحداثة منخفضة تحت 50 تبطئ البحث، وجودة 80 فأعلى تسرّع التدريب. التنظيف يرفع الجودة لكنه يسقط كمية، والتجديد يرفع الحداثة فقط — فلا عرض واحد يغني عن الباقي.'),
-                  const SizedBox(height: 12),
-                  for (final def in ManagementState.dataCatalog)
-                    _DataRow(
-                      def: def,
-                      canAfford: s.cash >= def.cost,
-                      onBuy: () {
-                        setState(() {
-                          s.buyData(def.id);
-                        });
-                      },
-                    ),
-                  const SizedBox(height: 12),
-                  Card(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text('تنظيف البيانات',
-                              style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold)),
-                          const Text(
-                              'الثمن: 3000 — الجودة +15، الكمية −50.'),
-                          const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed: (s.cash >= 3000 &&
-                                    s.dataQuality < 100 &&
-                                    s.dataQuantity >= 50)
-                                ? () {
-                                    setState(() {
-                                      s.cleanData();
-                                    });
-                                  }
-                                : null,
-                            child: const Text('تنظيف البيانات'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Card(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text('تجديد البيانات',
-                              style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold)),
-                          const Text(
-                              'الثمن: 2000 — الحداثة +25، دون تغيير الكمية أو الجودة.'),
-                          const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed: (s.cash >= 2000 &&
-                                    s.dataFreshness < 100)
-                                ? () {
-                                    setState(() {
-                                      s.refreshData();
-                                    });
-                                  }
-                                : null,
-                            child: const Text('تجديد البيانات'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ]),
-                _panel([
-                  const Text('الحوسبة',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _row('المتاحة', '${s.computeAvailable}'),
-                  _row('المحجوزة', '${s.computeReserved}'),
-                  const Text(
-                      'المحجوزة تُستهلك في أسبوعها: 20 وحدة فأكثر تسرّع التدريب، لكن حجز 60 وحدة فأكثر يجهد الموثوقية ويبطئه 4 نقاط — إلا بعقد صيانة وتبريد نشط يمتص الإجهاد لأربعة أسابيع. الخدمات تأكل من المتاح كل أسبوع.'),
-                  if (s.maintenanceWeeks > 0)
-                    _row('عقد صيانة وتبريد نشط',
-                        '${s.maintenanceWeeks} أسبوعا متبقيا'),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: (s.cash >= 4000 && s.computeAvailable < 200)
-                        ? () {
-                            setState(() {
-                              s.buyCompute();
-                            });
-                          }
-                        : null,
-                    child: const Text('شراء 25 وحدة (4000)'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: s.computeAvailable >= 20
-                        ? () {
-                            setState(() {
-                              s.reserveCompute(20);
-                            });
-                          }
-                        : null,
-                    child: const Text('حجز 20 وحدة للتدريب'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: s.computeAvailable >= 40
-                        ? () {
-                            setState(() {
-                              s.reserveCompute(40);
-                            });
-                          }
-                        : null,
-                    child: const Text('حجز 40 وحدة للتدريب'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: (s.cash >= 5000 && s.maintenanceWeeks == 0)
-                        ? () {
-                            setState(() {
-                              s.buyMaintenance();
-                            });
-                          }
-                        : null,
-                    child: const Text(
-                        'عقد صيانة وتبريد (5000، 4 أسابيع)'),
-                  ),
-                ]),
-                _panel([
-                  const Text('النماذج — وظائف بأثمان ومدد',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _row('مستوى النموذج الرئيسي', '${s.modelLevel}'),
-                  _row('أفضل منافس', '${s.bestRivalLevel}'),
-                  _row('تقدم التدريب', '${s.trainingProgress} / 100'),
-                  _row('تكلفة الاستدلال للمستخدم',
-                      '${s.inferencePerUser}'),
-                  const Text(
-                      'وظيفة نموذج واحدة نشطة فقط: الجيل الجديد وحده يرفع المستوى لكنه يصفّر تقدم التدريب، والتقطير يرخّص الاستدلال دون رفع المستوى، والاسترجاع يرفع السمعة والنمو دون رفع المستوى — فلا عمل واحد يغني عن الباقي.'),
-                  const SizedBox(height: 12),
-                  if (s.activeModelJob != null)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                                'وظيفة نشطة: ${s.activeModelJob!.name}',
-                                style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold)),
-                            Text(
-                                'الأسبوع ${s.activeModelJob!.weeksDone} من ${s.activeModelJob!.durationWeeks}'),
-                            const SizedBox(height: 6),
-                            LinearProgressIndicator(
-                              value: s.activeModelJob!.weeksDone /
-                                  s.activeModelJob!.durationWeeks,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  for (final def in ManagementState.modelCatalog)
-                    _ModelRow(
-                      def: def,
-                      active: s.activeModelJob?.id == def.id,
-                      done: s.completedModels.contains(def.id),
-                      canAfford: s.cash >= def.cost,
-                      anyActive: s.activeModelJob != null,
-                      onStart: () {
-                        setState(() {
-                          s.startModelJob(def.id);
-                        });
-                      },
-                    ),
-                ]),
-                _panel([
-                  const Text('المنتجات — إطلاق بأثمان ونتائج',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _row('المستخدمون', '${s.users}'),
-                  _row('سعر المستخدم', '${s.pricePerUser}'),
-                  _row('تكلفة الاستدلال للمستخدم', '${s.inferencePerUser}'),
-                  _row('إيراد المنتجات الأسبوعي', '${s.effectiveProductsRevenue}'),
-                  _row('صيانة المنتجات الأسبوعية', '${s.productsCost}'),
-                  _row('نمو المستخدمين من المنتجات', '+${s.effectiveProductsGrowth}'),
-                  _row('التسعير المميز', s.premiumPricing ? 'مفعّل (+30% إيراد، -2 نمو)' : 'مطفأ'),
-                  const Text(
-                      'لا منتج مهيمن واحد: الواجهة البرمجية أعلى صافي أسبوعي لكن نموها الأبطأ، ومساعد البرمجة أعلى نمو لكن ثمنه الأعلى وصافيه الأدنى، وروبوت المحادثة أرخص دخول بصافي ونمو متوسطين، ومنصة الوكلاء أعلى ثمن إطلاق لكن صافيها ونموها في الوسط، وتحليل الوثائق صافي متوسط بثمن متوسط ونمو متوسط، وتلخيص الاجتماعات صافي متوسط بثمن مرتفع ونمو يساوي منصة الوكلاء لكن صافيه أدنى منها، ومساعد الأبحاث صافي متوسط (500) بثمن مرتفع ونمو متوسط، فلا يهيمن على أي جانب أيضا. كل منتج مطلق يدر إيراده ويكلف صيانته كل أسبوع. التسعير المميز قرار أسبوعي: إيراد أعلى الآن مقابل نمو أبطأ، فلا يصلح دائما.'),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: s.launchedProducts.isEmpty
-                        ? null
-                        : () {
-                            setState(() {
-                              s.setPremiumPricing(!s.premiumPricing);
-                            });
-                          },
-                    child: Text(s.premiumPricing
-                        ? 'إطفاء التسعير المميز'
-                        : 'تشغيل التسعير المميز (+30% إيراد، -2 نمو)'),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final def in ManagementState.productCatalog)
-                    _ProductRow(
-                      def: def,
-                      launched: s.launchedProducts.contains(def.id),
-                      canAfford: s.cash >= def.cost,
-                      onLaunch: () {
-                        setState(() {
-                          s.launchProduct(def.id);
-                        });
-                      },
-                    ),
-                ]),
-                _panel([
-                  const Text('الخدمات — كل ما حول النماذج',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  const Text(
-                      'الشرط الأول للبقاء: ألا تفلس. الإفلاس هو نفاد النقد مع نفاد الائتمان، والصدارة هدف بعد البقاء. التنويع يقلل خطر الإفلاس لكنه يشتت التركيز عن نموذجك الرئيسي.'),
-                  _row('إيراد الخدمات الأسبوعي', '${s.servicesRevenue}'),
-                  _row('تكلفة الخدمات الأسبوعية', '${s.servicesCost}'),
-                  _row('حوسبة تستهلكها الخدمات', '${s.servicesCompute}'),
-                  _row('الائتمان المستخدم', '${s.creditUsed} / ${s.creditLimit}'),
-                  _row('الائتمان المتبقي', '${s.creditRemaining}'),
-                  _row('المدى مع الائتمان',
-                      s.runwayWithCreditWeeks >= 999
-                          ? 'مستدام'
-                          : '${s.runwayWithCreditWeeks} أسبوع'),
-                  const SizedBox(height: 12),
-                  for (final def in ManagementState.serviceCatalog)
-                    _ServiceRow(
-                      def: def,
-                      active: s.services.any((x) => x.id == def.id),
-                      activeClient: s.services
-                          .where((x) => x.id == def.id)
-                          .map((x) => x.clientName)
-                          .join(),
-                      onToggle: () {
-                        setState(() {
-                          if (s.services.any((x) => x.id == def.id)) {
-                            s.stopService(def.id);
-                          } else {
-                            s.startService(def.id);
-                          }
-                        });
-                      },
-                    ),
-                ]),
-                _panel([
-                  const Text('المنافسون (خياليون)',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  const Text(
-                      'استقطاب خبير من منافس يكلف 9000 مقدما، يخفض مستوى المنافس درجة (لا تحت مستوى 1)، ويرفع تسريع تدريبك نقطتين دائما. مرة واحدة لكل منافس فقط، والمنافس قد يستعيد مستواه في الأسابيع التالية، فلا استقطاب مهيمن.'),
-                  for (final rival in s.rivals)
-                    Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                                '${rival.name} — مستوى ${rival.modelLevel} — استراتيجية: ${rival.strategy}'),
-                            if (s.poachedRivals.contains(rival.name))
-                              const Text('استُقطب خبير منه من قبل'),
-                            const SizedBox(height: 8),
-                            OutlinedButton(
-                              onPressed: (!s.poachedRivals
-                                          .contains(rival.name) &&
-                                      rival.modelLevel > 1 &&
-                                      s.cash >=
-                                          ManagementState.poachCost)
-                                  ? () {
-                                      setState(() {
-                                        s.poachRival(rival.name);
-                                      });
-                                    }
-                                  : null,
-                              child: Text(s.poachedRivals
-                                      .contains(rival.name)
-                                  ? 'استُقطب منه من قبل'
-                                  : rival.modelLevel <= 1
-                                      ? 'مستواه 1 فلا ما يُضعف'
-                                      : s.cash < ManagementState.poachCost
-                                          ? 'نقد غير كاف'
-                                          : 'استقطاب خبير (9000)'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  const Text(
-                      'أسماء خيالية من تأليف اللعبة، لا تشير لأي شركة حقيقية.'),
-                ]),
-                _panel([
-                  const Text('الفريق — توظيف متخصصين',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _row('رواتب الفريق الأسبوعية', '${s.staffSalaries}'),
-                  _row('مكافأة البحث الدائمة', '+${s.researchBoost}'),
-                  _row('مكافأة نمو المستخدمين', '+${s.userGrowthBoost}'),
-                  const Text(
-                      'كل دور يُعين مرة واحدة فقط: الثمن يُدفع مقدما، والتأثير دائم، لكن الراتب يُخصم كل أسبوع بعد التعيين — فالتعيين يريحك الآن ويأكل نقدك دائما. لا دور واحد يغني عن بقية الإدارة.'),
-                  const SizedBox(height: 12),
-                  for (final def in ManagementState.staffCatalog)
-                    Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(def.name,
-                                style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold)),
-                            Text(def.description),
-                            Text(
-                                'ثمن التعيين: ${def.cost} — راتب أسبوعي: ${def.salary}'),
-                            Text('عند التعيين: ${def.effect}'),
-                            if (s.hiredStaff.contains(def.id))
-                              const Text('معيّن ✓'),
-                            const SizedBox(height: 8),
-                            if (!s.hiredStaff.contains(def.id))
-                              OutlinedButton(
-                                onPressed: s.cash >= def.cost
-                                    ? () {
-                                        setState(() {
-                                          s.hireStaff(def.id);
-                                        });
-                                      }
-                                    : null,
-                                child: Text(s.cash >= def.cost
-                                    ? 'تعيين'
-                                    : 'نقد غير كاف'),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ]),
-                _panel([
-                  const Text('المالية',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  _row('النقد', '${s.cash}'),
-                  _row('المدى النقدي', runway),
-                  _row('رواتب الأسبوع', '${s.weeklySalaries}'),
-                  _row('رواتب الفريق المتخصص', '${s.staffSalaries}'),
-                  _row('إيراد الأسبوع', '${s.weeklyRevenue}'),
-                  _row('تكلفة الاستدلال', '${s.weeklyInferenceCost}'),
-                  _row('الائتمان المستخدم', '${s.creditUsed}'),
-                  _row('الائتمان المتبقي', '${s.creditRemaining}'),
-                  _row('فائدة الائتمان الأسبوعية', '${s.creditInterest}'),
-                  const Text(
-                      'الاقتراض يسحب من الائتمان إلى النقد الآن لكنه يرفع الفائدة 2% أسبوعيا على المستخدم؛ والسداد يخفضها. رواتب فريقك المتخصص تُخصم كل أسبوع مع الرواتب في تقرير الأسبوع.'),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: s.creditRemaining >= 10000
-                        ? () {
-                            setState(() {
-                              s.takeLoan();
-                            });
-                          }
-                        : null,
-                    child: const Text('اقتراض 10000 من الائتمان'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: (s.cash >= 5000 && s.creditUsed >= 5000)
-                        ? () {
-                            setState(() {
-                              s.repayCredit(5000);
-                            });
-                          }
-                        : null,
-                    child: const Text('سداد 5000 من الائتمان'),
-                  ),
-                ]),
-                _panel([
-                  const Text('مكتبة المفاهيم',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  const Text(
-                      'شرح عربي واضح لكل نظام إداري: ما يفعله، وما ثمنه في '
-                      'الأنظمة الأخرى، ولماذا لا توجد استراتيجية واحدة تفوز '
-                      'دائما. أحداث العالم هنا سيناريوهات محاكاة مستوحاة من '
-                      'اتجاهات عامة، ليست بيانات رسمية ولا تنبؤات.'),
-                  const SizedBox(height: 8),
-                  for (final concept in managementConcepts)
-                    Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(concept.title,
-                                style: const TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            Text(concept.body),
-                          ],
-                        ),
-                      ),
-                    ),
-                ]),
-                _panel([
-                  const Text('الأهداف والمكافآت',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  GoalsPanel(
-                    week: s.week,
-                    users: s.users,
-                    cash: s.cash,
-                    modelLevel: s.modelLevel,
-                    launchedCount: s.launchedProducts.length,
-                    completedResearchCount: s.completedResearch.length,
-                    completedModelCount: s.completedModels.length,
-                    rank: s.rank,
-                    reputation: s.reputation,
-                    isBankrupt: s.isBankrupt,
-                    leadershipVictory: s.leadershipVictory,
-                    streakWeeks: _streakWeeks,
-                  ),
-                ]),
-              ],
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(150000),
+              child: const Text('مرآب ناشئ (قياسي — 150,000)'),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// صف مشروع بحثي واحد: ثمنه ومدته وتأثيره الدائم وزر بدئه.
-class _ResearchRow extends StatelessWidget {
-  final ({String id, String name, String description, int cost, int weeks, String effect}) def;
-  final bool active;
-  final bool done;
-  final bool canAfford;
-  final bool anyActive;
-  final VoidCallback onStart;
-
-  const _ResearchRow({
-    required this.def,
-    required this.active,
-    required this.done,
-    required this.canAfford,
-    required this.anyActive,
-    required this.onStart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(def.name,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            Text(def.description),
-            Text('الثمن: ${def.cost} — المدة: ${def.weeks} أسابيع'),
-            Text('عند الاكتمال: ${def.effect}'),
-            if (done) const Text('مكتمل ✓'),
-            if (active) const Text('نشط الآن'),
-            const SizedBox(height: 8),
-            if (!done && !active)
-              OutlinedButton(
-                onPressed: (!anyActive && canAfford) ? onStart : null,
-                child: Text(canAfford
-                    ? 'بدء المشروع'
-                    : 'نقد غير كاف'),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// صف وظيفة نموذج واحدة: ثمنها ومدتها وتأثيرها وزر بدئها.
-class _ModelRow extends StatelessWidget {
-  final ({String id, String name, String description, int cost, int weeks, String effect}) def;
-  final bool active;
-  final bool done;
-  final bool canAfford;
-  final bool anyActive;
-  final VoidCallback onStart;
-
-  const _ModelRow({
-    required this.def,
-    required this.active,
-    required this.done,
-    required this.canAfford,
-    required this.anyActive,
-    required this.onStart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(def.name,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            Text(def.description),
-            Text('الثمن: ${def.cost} — المدة: ${def.weeks} أسابيع'),
-            Text('عند الاكتمال: ${def.effect}'),
-            if (done) const Text('مكتمل ✓'),
-            if (active) const Text('نشطة الآن'),
-            const SizedBox(height: 8),
-            if (!done && !active)
-              OutlinedButton(
-                onPressed: (!anyActive && canAfford) ? onStart : null,
-                child: Text(canAfford
-                    ? 'بدء الوظيفة'
-                    : 'نقد غير كاف'),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// صف عرض بيانات واحد: ثمنه وكميته وأثره على الجودة والحداثة وزر شرائه.
-class _DataRow extends StatelessWidget {
-  final ({String id, String name, String description, int cost, int quantity, int qualityDelta, int freshnessDelta}) def;
-  final bool canAfford;
-  final VoidCallback onBuy;
-
-  const _DataRow({
-    required this.def,
-    required this.canAfford,
-    required this.onBuy,
-  });
-
-  String _signed(int v) => v >= 0 ? '+$v' : '$v';
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(def.name,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            Text(def.description),
-            Text(
-                'الثمن: ${def.cost} — الكمية: +${def.quantity} — الجودة: ${_signed(def.qualityDelta)} — الحداثة: ${_signed(def.freshnessDelta)}'),
             const SizedBox(height: 8),
             OutlinedButton(
-              onPressed: canAfford ? onBuy : null,
-              child: Text(canAfford ? 'شراء المجموعة' : 'نقد غير كاف'),
+              onPressed: () => Navigator.of(context).pop(85000),
+              child: const Text('تحدي المؤسس (صعب — 85,000)'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(240000),
+              child: const Text('تمويل جريء (سريع — 240,000)'),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('إلغاء'),
+          ),
+        ],
       ),
     );
+    if (startingCash == null || !mounted) return;
+    await _startNewEmpire(startingCash: startingCash);
   }
-}
 
-/// صف منتج واحد: ثمن إطلاقه وإيراده وصيانته ونموه وزر إطلاقه.
-class _ProductRow extends StatelessWidget {
-  final ({String id, String name, String description, int cost, int revenue, int maintenance, int growth}) def;
-  final bool launched;
-  final bool canAfford;
-  final VoidCallback onLaunch;
-
-  const _ProductRow({
-    required this.def,
-    required this.launched,
-    required this.canAfford,
-    required this.onLaunch,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(def.name,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            Text(def.description),
-            Text(
-                'ثمن الإطلاق: ${def.cost} — إيراد ${def.revenue} / أسبوع — صيانة ${def.maintenance} / أسبوع — نمو +${def.growth} مستخدم / أسبوع'),
-            if (launched) const Text('مطلق ✓'),
-            const SizedBox(height: 8),
-            if (!launched)
-              OutlinedButton(
-                onPressed: canAfford ? onLaunch : null,
-                child: Text(canAfford ? 'إطلاق المنتج' : 'نقد غير كاف'),
-              ),
-          ],
+  Future<void> _renameCompany() async {
+    final controller = TextEditingController(text: _companyName);
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: EmpireColors.surface,
+        title: const Text('تسمية شركتك'),
+        content: TextField(
+          controller: controller,
+          maxLength: 26,
+          decoration: const InputDecoration(
+            hintText: 'مثلاً: نيورال العرب',
+            border: OutlineInputBorder(),
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('حفظ الاسم'),
+          ),
+        ],
       ),
     );
+    controller.dispose();
+    if (updated == null || updated.isEmpty || !mounted) return;
+    setState(() => _companyName = updated);
+    await _save();
   }
-}
 
-/// صف خدمة واحدة: إيرادها وتكلفتها وخطرها المتشابك، وزر بدء/إيقاف.
-class _ServiceRow extends StatelessWidget {
-  final ({String id, String name, int revenue, int cost, int compute, bool team, bool big}) def;
-  final bool active;
-  final String activeClient;
-  final VoidCallback onToggle;
+  Future<bool> _importSaveJson(String rawJson) async {
+    try {
+      final restored = ManagementState.fromJson(
+        jsonDecode(rawJson) as Map<String, dynamic>,
+      );
+      if (!mounted) return false;
+      setState(() {
+        _state = restored;
+        _history = [WeekSnapshot.fromState(restored)];
+        _lastDelta = null;
+        _lastReport = null;
+        _endgameShown = restored.isBankrupt || restored.leadershipVictory;
+        _career = _career.recordProgress(restored);
+        _saveStatus =
+            'تمت استعادة النسخة الاحتياطية — الأسبوع ${restored.week}.';
+      });
+      await _save();
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('نص الحفظ غير صالح — تأكد من نسخه كاملاً.'),
+          ),
+        );
+      }
+      return false;
+    }
+  }
 
-  const _ServiceRow({
-    required this.def,
-    required this.active,
-    required this.activeClient,
-    required this.onToggle,
-  });
+  Future<void> _deleteAllLocalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_saveKey);
+    await prefs.remove(_historyKey);
+    await prefs.remove(_nameKey);
+    await prefs.remove(_careerKey);
+    await prefs.remove(_tutorialKey);
+    if (!mounted) return;
+    setState(() {
+      _state = ManagementState();
+      _career = const CareerStats();
+      _companyName = 'إمبراطورية الذكاء';
+      _history = [WeekSnapshot.fromState(_state)];
+      _lastReport = null;
+      _lastDelta = null;
+      _streakWeeks = 0;
+      _tutorialStep = 0;
+      _eventSceneDismissed = false;
+      _eventNote = null;
+      _endgameShown = false;
+      _saveStatus = 'تم مسح جميع البيانات المحلية والبدء من جديد.';
+    });
+  }
 
-  String get _risk {
-    switch (def.id) {
-      case 'hosting':
-        return 'الخطر: تقوّي المنافس المستضاف وتأكل حوسبتك.';
-      case 'compute_rental':
-        return 'الخطر: يبطئ تدريبك وبحثك.';
-      case 'fine_tuning':
-        return 'الخطر: يستهلك فرقك وقد يسرب خبرة لمنافس.';
-      case 'data_labeling':
-        return 'الخطر: يستهلك فرقك ويبطئ بحثك.';
-      case 'consulting':
-        return 'الخطر: عميل كبير، فقدانه يضرب الإيراد فجأة.';
+  void _openSettings() {
+    showEmpireSettingsSheet(
+      context: context,
+      companyName: _companyName,
+      soundOn: _soundOn,
+      careerStats: _career,
+      saveJson: jsonEncode(_state.toJson()),
+      onToggleSound: () => setState(() => _soundOn = !_soundOn),
+      onReplayTutorial: () {
+        setState(() {
+          _tutorialStep = 0;
+          _navIndex = 0;
+        });
+        _persistTutorialDone(false);
+      },
+      onImportSave: _importSaveJson,
+      onDeleteAllData: _deleteAllLocalData,
+    );
+  }
+
+  Widget _buildActiveTab() {
+    final s = _state;
+    switch (_navIndex) {
+      case 0:
+        return OverviewTab(
+          companyName: _companyName,
+          state: s,
+          lastReport: _lastReport,
+          lastDelta: _lastDelta,
+          history: _history,
+          streakWeeks: _streakWeeks,
+          tutorialStep: _tutorialStep,
+          eventSceneDismissed: _eventSceneDismissed,
+          eventNote: _eventNote,
+          onJump: _jumpTo,
+          onBuyTutorialData: () {
+            final affordable = ManagementState.dataCatalog
+                .where((d) => s.cash >= d.cost)
+                .toList();
+            if (affordable.isEmpty) return;
+            _mutate(() {
+              s.buyData(affordable.first.id);
+              _finishTutorialStep(
+                nextTutorialStep(
+                  _tutorialStep,
+                  TutorialEvent.managementAction,
+                ),
+              );
+            });
+          },
+          onStartTutorialResearch: () {
+            final affordable = ManagementState.researchCatalog
+                .where(
+                  (d) =>
+                      s.activeResearch == null &&
+                      !s.completedResearch.contains(d.id) &&
+                      s.cash >= d.cost,
+                )
+                .toList();
+            if (affordable.isEmpty) return;
+            _mutate(() {
+              s.startResearch(affordable.first.id);
+              _finishTutorialStep(
+                nextTutorialStep(
+                  _tutorialStep,
+                  TutorialEvent.managementAction,
+                ),
+              );
+            });
+          },
+          onSkipTutorialStep: () {
+            setState(() {
+              _finishTutorialStep(
+                nextTutorialStep(
+                  _tutorialStep,
+                  TutorialEvent.managementAction,
+                ),
+              );
+            });
+          },
+          onSkipAllTutorial: () {
+            setState(() {
+              _finishTutorialStep(
+                nextTutorialStep(_tutorialStep, TutorialEvent.skipped),
+              );
+            });
+          },
+          onEventBuyCompute: () {
+            _mutate(() {
+              s.buyCompute();
+              _eventSceneDismissed = true;
+              _eventNote =
+                  'قررت: شراء 25 وحدة حوسبة — حوسبتك المتاحة ارتفعت فورا، وستظهر في المشهد الحي.';
+            });
+          },
+          onEventStartResearch: () {
+            final first = ManagementState.researchCatalog.firstWhere(
+              (d) =>
+                  !s.completedResearch.contains(d.id) && s.cash >= d.cost,
+            );
+            _mutate(() {
+              s.startResearch(first.id);
+              _eventSceneDismissed = true;
+              _eventNote =
+                  'قررت: بدء مشروع بحث (${first.name}) — سيتقدم مع الأسابيع التالية.';
+            });
+          },
+          onEventSaveCash: () {
+            _mutate(() {
+              _eventSceneDismissed = true;
+              _eventNote =
+                  'قررت: ادخار النقد — لم تنفق شيئا على الحدث، ونقدك محفوظ للأسبوع التالي.';
+            });
+          },
+        );
+      case 1:
+        return TechTab(
+          state: s,
+          subIndex: _techSub,
+          onSubChanged: (i) => setState(() => _techSub = i),
+          onMutate: _mutate,
+        );
+      case 2:
+        return MarketTab(
+          companyName: _companyName,
+          state: s,
+          subIndex: _marketSub,
+          onSubChanged: (i) => setState(() => _marketSub = i),
+          onMutate: _mutate,
+        );
+      case 3:
+        return CompanyTab(
+          state: s,
+          subIndex: _companySub,
+          onSubChanged: (i) => setState(() => _companySub = i),
+          onMutate: _mutate,
+        );
+      case 4:
       default:
-        return '';
+        return ProgressTab(state: s, streakWeeks: _streakWeeks);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(def.name,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(
-                'إيراد ${def.revenue} / أسبوع — تكلفة ${def.cost} / أسبوع${def.compute > 0 ? ' — حوسبة ${def.compute}' : ''}${def.big ? ' — عميل كبير' : ''}'),
-            Text(_risk),
-            if (active) Text('نشطة — العميل: $activeClient'),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: onToggle,
-              child: Text(active ? 'إيقاف الخدمة' : 'بدء الخدمة'),
+    return Scaffold(
+      appBar: AppBar(
+        title: InkWell(
+          onTap: _renameCompany,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.hub_rounded, color: EmpireColors.cyan, size: 22),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    _companyName,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                const Icon(
+                  Icons.edit_rounded,
+                  size: 14,
+                  color: EmpireColors.textMuted,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.restart_alt_rounded),
+            tooltip: 'بدء شركة جديدة',
+            onPressed: _confirmReset,
+          ),
+          IconButton(
+            icon: Icon(_soundOn ? Icons.volume_up : Icons.volume_off),
+            tooltip: _soundOn ? 'كتم الصوت' : 'تشغيل الصوت',
+            onPressed: () => setState(() => _soundOn = !_soundOn),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded),
+            tooltip: 'الإعدادات والخصوصية',
+            onPressed: _openSettings,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          CommandHud(
+            state: _state,
+            tutorialStep: _tutorialStep,
+            saveStatus: _saveStatus,
+            onAdvanceWeek: () => _advanceWeeks(1),
+            onFastForward: () => _advanceWeeks(4),
+            onSave: _save,
+            onJump: _jumpTo,
+          ),
+          Expanded(child: _buildActiveTab()),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _navIndex,
+        onDestinationSelected: (index) {
+          setState(() => _navIndex = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard_rounded),
+            label: 'القيادة',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.psychology_outlined),
+            selectedIcon: Icon(Icons.psychology_rounded),
+            label: 'التقنية',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.storefront_outlined),
+            selectedIcon: Icon(Icons.storefront_rounded),
+            label: 'السوق',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_outlined),
+            selectedIcon: Icon(Icons.account_balance_rounded),
+            label: 'الشركة',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events_rounded),
+            label: 'الإنجاز',
+          ),
+        ],
       ),
     );
   }
