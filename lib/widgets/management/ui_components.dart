@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../theme/empire_theme.dart';
 
-/// شريط تبويبات فرعية مضغوط داخل كل محور رئيسي.
+/// شريط تبويبات فرعية مضغوط داخل كل محور رئيسي مع دعم أيقونة القفل للفتح التدريجي.
 class EmpireSubTabBar extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onChanged;
+  final Set<int> lockedIndices;
 
   const EmpireSubTabBar({
     super.key,
     required this.labels,
     required this.selectedIndex,
     required this.onChanged,
+    this.lockedIndices = const {},
   });
 
   @override
@@ -43,17 +45,32 @@ class EmpireSubTabBar extends StatelessWidget {
                     width: i == selectedIndex ? 1.4 : 1,
                   ),
                 ),
-                child: Text(
-                  labels[i],
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: i == selectedIndex
-                        ? FontWeight.w800
-                        : FontWeight.w600,
-                    color: i == selectedIndex
-                        ? EmpireColors.cyan
-                        : EmpireColors.textSecondary,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (lockedIndices.contains(i)) ...[
+                      const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 13,
+                        color: EmpireColors.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: i == selectedIndex
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: i == selectedIndex
+                            ? EmpireColors.cyan
+                            : lockedIndices.contains(i)
+                                ? EmpireColors.textMuted
+                                : EmpireColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -64,10 +81,11 @@ class EmpireSubTabBar extends StatelessWidget {
   }
 }
 
-/// عنوان قسم واضح مع شريط لوني جانبي.
+/// عنوان قسم واضح مع زر مساعدة (?) اختياري يخفي الشرح الطويل حتى يطلبه اللاعب.
 class EmpireSectionHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final String? helpText;
   final Color accent;
   final IconData? icon;
 
@@ -75,21 +93,57 @@ class EmpireSectionHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.helpText,
     this.accent = EmpireColors.cyan,
     this.icon,
   });
+
+  void _showHelp(BuildContext context) {
+    if (helpText == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: EmpireColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: accent.withValues(alpha: 0.5)),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: accent,
+            fontSize: 16.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: Text(
+          helpText!,
+          style: const TextStyle(
+            fontSize: 13.5,
+            color: EmpireColors.textPrimary,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(c).pop(),
+            child: const Text('فهمت'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 4,
             height: subtitle == null ? 22 : 38,
-            margin: const EdgeInsets.only(top: 2),
             decoration: BoxDecoration(
               color: accent,
               borderRadius: BorderRadius.circular(4),
@@ -110,7 +164,7 @@ class EmpireSectionHeader extends StatelessWidget {
                       child: Text(
                         title,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 17.5,
                           fontWeight: FontWeight.w800,
                           color: EmpireColors.textPrimary,
                         ),
@@ -131,13 +185,89 @@ class EmpireSectionHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (helpText != null)
+            IconButton(
+              icon: const Icon(
+                Icons.help_outline_rounded,
+                size: 20,
+                color: EmpireColors.textSecondary,
+              ),
+              tooltip: 'شرح النظام',
+              onPressed: () => _showHelp(context),
+            ),
         ],
       ),
     );
   }
 }
 
-/// صندوق ملاحظة أو شرح استراتيجي مضغوط.
+/// بطاقة قفل لطيفة للأنظمة التي تُفتح تدريجياً مع خيار فتح الكل فوراً.
+class EmpireLockedPanel extends StatelessWidget {
+  final String title;
+  final String unlockHint;
+  final VoidCallback onUnlockAll;
+
+  const EmpireLockedPanel({
+    super.key,
+    required this.title,
+    required this.unlockHint,
+    required this.onUnlockAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: EmpireColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: EmpireColors.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: EmpireColors.indigo.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.lock_clock_rounded,
+              size: 32,
+              color: EmpireColors.indigo,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: EmpireColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            unlockHint,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: EmpireColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: onUnlockAll,
+            icon: const Icon(Icons.lock_open_rounded, size: 18),
+            label: const Text('فتح جميع الأنظمة المتقدمة الآن'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// صندوق ملاحظة قصير (يُستخدم لرسائل النتائج الفورية).
 class EmpireInfoBox extends StatelessWidget {
   final String text;
   final Color accent;
@@ -170,7 +300,7 @@ class EmpireInfoBox extends StatelessWidget {
               text,
               style: const TextStyle(
                 fontSize: 12.5,
-                color: EmpireColors.textSecondary,
+                color: EmpireColors.textPrimary,
                 height: 1.45,
               ),
             ),
@@ -181,7 +311,7 @@ class EmpireInfoBox extends StatelessWidget {
   }
 }
 
-/// شبكة مؤشرات مدمجة ببطاقات داكنة واضحة بدل الصفوف النصية الطويلة.
+/// شبكة مؤشرات مدمجة ببطاقات داكنة واضحة.
 class EmpireMetricGrid extends StatelessWidget {
   final List<EmpireMetricItem> items;
 
@@ -245,7 +375,7 @@ class EmpireMetricItem {
   const EmpireMetricItem(this.label, this.value, {this.accent});
 }
 
-/// شارة حالة صغيرة (نشط / مكتمل / معيّن / مطلق).
+/// شارة حالة صغيرة.
 class EmpireBadge extends StatelessWidget {
   final String text;
   final Color color;
@@ -277,7 +407,7 @@ class EmpireBadge extends StatelessWidget {
   }
 }
 
-/// بطاقة عنصر إداري موحدة (بحث، نموذج، بيانات، منتج، خدمة، توظيف).
+/// بطاقة عنصر إداري موحدة.
 class EmpireActionCard extends StatelessWidget {
   final String title;
   final String? description;

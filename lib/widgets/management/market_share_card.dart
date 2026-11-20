@@ -2,10 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../interactive/rival_brands.dart';
 import '../../management.dart';
 import '../../theme/empire_theme.dart';
 
-/// لوحة ترتيب السوق ومقارنة قوة النماذج بين شركتك وجميع المنافسين.
+/// لوحة ترتيب السوق ومقارنة قوة النماذج بأسماء وشعارات الشركات شبه الحقيقية.
 class MarketLeaderboardCard extends StatelessWidget {
   final String companyName;
   final ManagementState state;
@@ -18,20 +19,34 @@ class MarketLeaderboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = <({String name, int level, bool isPlayer, String tag})>[
+    final entries = <({
+      String name,
+      int level,
+      bool isPlayer,
+      String sub,
+      IconData icon,
+      Color color,
+    })>[
       (
         name: companyName,
         level: state.modelLevel,
         isPlayer: true,
-        tag: 'شركتك',
+        sub: 'شركتك',
+        icon: Icons.hub_rounded,
+        color: EmpireColors.cyan,
       ),
       for (final r in state.rivals)
-        (
-          name: r.name,
-          level: r.modelLevel,
-          isPlayer: false,
-          tag: r.strategy,
-        ),
+        (() {
+          final b = resolveRivalBrand(r.name);
+          return (
+            name: b.shortName,
+            level: r.modelLevel,
+            isPlayer: false,
+            sub: '${b.headquarters} • ${r.strategy}',
+            icon: b.icon,
+            color: b.color,
+          );
+        })(),
     ];
 
     entries.sort((a, b) {
@@ -52,7 +67,7 @@ class MarketLeaderboardCard extends StatelessWidget {
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: EmpireColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: EmpireColors.border),
       ),
       child: Column(
@@ -63,7 +78,7 @@ class MarketLeaderboardCard extends StatelessWidget {
               Icon(Icons.leaderboard_rounded, color: EmpireColors.gold, size: 19),
               SizedBox(width: 8),
               Text(
-                'ترتيب سباق النماذج العالمي',
+                'ترتيب سباق الذكاء العالمي',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -78,10 +93,12 @@ class MarketLeaderboardCard extends StatelessWidget {
             _LeaderRow(
               position: i + 1,
               name: entries[i].name,
+              sub: entries[i].sub,
               level: entries[i].level,
-              fraction: (entries[i].level / maxLevel).clamp(0.1, 1.0),
+              fraction: (entries[i].level / maxLevel).clamp(0.12, 1.0),
               isPlayer: entries[i].isPlayer,
-              tag: entries[i].tag,
+              icon: entries[i].icon,
+              color: entries[i].color,
             ),
           ],
         ],
@@ -93,38 +110,36 @@ class MarketLeaderboardCard extends StatelessWidget {
 class _LeaderRow extends StatelessWidget {
   final int position;
   final String name;
+  final String sub;
   final int level;
   final double fraction;
   final bool isPlayer;
-  final String tag;
+  final IconData icon;
+  final Color color;
 
   const _LeaderRow({
     required this.position,
     required this.name,
+    required this.sub,
     required this.level,
     required this.fraction,
     required this.isPlayer,
-    required this.tag,
+    required this.icon,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final accent = isPlayer
-        ? EmpireColors.cyan
-        : position == 1
-            ? EmpireColors.gold
-            : EmpireColors.textSecondary;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isPlayer
-            ? EmpireColors.cyan.withValues(alpha: 0.1)
+            ? EmpireColors.cyan.withValues(alpha: 0.11)
             : EmpireColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isPlayer
-              ? EmpireColors.cyan.withValues(alpha: 0.55)
+              ? EmpireColors.cyan.withValues(alpha: 0.6)
               : EmpireColors.border,
         ),
       ),
@@ -136,7 +151,7 @@ class _LeaderRow extends StatelessWidget {
               Text(
                 position == 1 ? '👑 #1' : '#$position',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: position == 1
                       ? EmpireColors.gold
@@ -144,14 +159,28 @@ class _LeaderRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              Icon(icon, size: 17, color: color),
+              const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: isPlayer ? FontWeight.w800 : FontWeight.w600,
-                    color: EmpireColors.textPrimary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: isPlayer ? FontWeight.w800 : FontWeight.w700,
+                        color: EmpireColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      sub,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: EmpireColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Text(
@@ -159,17 +188,17 @@ class _LeaderRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: accent,
+                  color: color,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: fraction,
-              color: accent,
+              color: color,
               backgroundColor: EmpireColors.bg,
               minHeight: 5,
             ),

@@ -1,30 +1,50 @@
 import 'package:flutter/material.dart';
 
+import '../../analytics/company_history.dart';
+import '../../goals.dart';
+import '../../interactive/progression_stages.dart';
 import '../../management.dart';
 import '../../theme/empire_theme.dart';
+import 'charts_card.dart';
+import 'market_share_card.dart';
 import 'ui_components.dart';
 
-/// محور الشركة: يضم المالية والائتمان والفريق المتخصص مع تحكم مباشر بالتبويب الفرعي.
-class CompanyTab extends StatelessWidget {
+/// محور الإمبراطورية الموحّد (الإصدار 3.0):
+/// يجمع الأداء (الرسوم البيانية والصدارة)، المالية، الفريق، والأهداف/المفاهيم في تبويب واحد واضح.
+class EmpireTab extends StatelessWidget {
+  final String companyName;
   final ManagementState state;
+  final ProgressionUnlock progression;
+  final List<WeekSnapshot> history;
+  final int streakWeeks;
   final int subIndex;
   final ValueChanged<int> onSubChanged;
+  final VoidCallback onUnlockAll;
   final void Function(VoidCallback action) onMutate;
 
-  const CompanyTab({
+  const EmpireTab({
     super.key,
+    required this.companyName,
     required this.state,
+    required this.progression,
+    required this.history,
+    required this.streakWeeks,
     required this.subIndex,
     required this.onSubChanged,
+    required this.onUnlockAll,
     required this.onMutate,
   });
 
-  static const _subTabs = ['المالية والائتمان', 'الفريق'];
+  static const _subTabs = ['الأداء', 'المالية', 'الفريق', 'الأهداف'];
 
   @override
   Widget build(BuildContext context) {
+    final locked = <int>{
+      if (!progression.teamUnlocked) 2,
+    };
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -32,11 +52,32 @@ class CompanyTab extends StatelessWidget {
             labels: _subTabs,
             selectedIndex: subIndex,
             onChanged: onSubChanged,
+            lockedIndices: locked,
           ),
-          if (subIndex == 0) _buildFinance(),
-          if (subIndex == 1) _buildTeam(),
+          if (subIndex == 0) _buildPerformance(),
+          if (subIndex == 1) _buildFinance(),
+          if (subIndex == 2)
+            progression.teamUnlocked
+                ? _buildTeam()
+                : EmpireLockedPanel(
+                    title: 'توظيف الفريق المتخصص',
+                    unlockHint:
+                        'يُفتح في المرحلة 3 (الأسبوع 4 أو مستوى نموذج 2) لتعيين الخبراء.',
+                    onUnlockAll: onUnlockAll,
+                  ),
+          if (subIndex == 3) _buildGoals(),
         ],
       ),
+    );
+  }
+
+  Widget _buildPerformance() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        EmpireTrendChartCard(history: history),
+        MarketLeaderboardCard(companyName: companyName, state: state),
+      ],
     );
   }
 
@@ -51,6 +92,8 @@ class CompanyTab extends StatelessWidget {
           title: 'المالية والائتمان',
           accent: EmpireColors.emerald,
           icon: Icons.account_balance_rounded,
+          helpText:
+              'الاقتراض يمنحك سيولة فورية مقابل فائدة 2% أسبوعياً، والسداد يخفض الفائدة. الرواتب تُخصم كل أسبوع.',
         ),
         EmpireMetricGrid(
           items: [
@@ -67,30 +110,21 @@ class CompanyTab extends StatelessWidget {
               '${s.weeklyRevenue}',
               accent: EmpireColors.emerald,
             ),
-            EmpireMetricItem('رواتب الأسبوع', '${s.weeklySalaries}'),
-            EmpireMetricItem('رواتب الفريق المتخصص', '${s.staffSalaries}'),
-            EmpireMetricItem('تكلفة الاستدلال', '${s.weeklyInferenceCost}'),
+            EmpireMetricItem('إجمالي التكلفة', '${s.weeklyCost}'),
             EmpireMetricItem(
               'الائتمان المستخدم',
-              '${s.creditUsed}',
+              '${s.creditUsed} / ${s.creditLimit}',
               accent: s.creditUsed > 0 ? EmpireColors.amber : null,
             ),
-            EmpireMetricItem('الائتمان المتبقي', '${s.creditRemaining}'),
             EmpireMetricItem(
-              'فائدة الائتمان الأسبوعية',
+              'الفائدة الأسبوعية',
               '${s.creditInterest}',
               accent: s.creditInterest > 0 ? EmpireColors.coral : null,
             ),
           ],
         ),
-        const EmpireInfoBox(
-          text:
-              'الاقتراض يسحب من الائتمان إلى النقد الآن لكنه يرفع الفائدة 2% أسبوعيا على المستخدم؛ والسداد يخفضها. رواتب فريقك المتخصص تُخصم كل أسبوع مع الرواتب.',
-          accent: EmpireColors.emerald,
-        ),
         EmpireActionCard(
           title: 'إدارة خط الائتمان',
-          description: 'توازن بين السيولة الفورية وتكلفة الفائدة الأسبوعية.',
           footer: Row(
             children: [
               Expanded(
@@ -98,7 +132,7 @@ class CompanyTab extends StatelessWidget {
                   onPressed: s.creditRemaining >= 10000
                       ? () => onMutate(s.takeLoan)
                       : null,
-                  child: const Text('اقتراض 10000 من الائتمان'),
+                  child: const Text('اقتراض 10000'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -107,7 +141,7 @@ class CompanyTab extends StatelessWidget {
                   onPressed: (s.cash >= 5000 && s.creditUsed >= 5000)
                       ? () => onMutate(() => s.repayCredit(5000))
                       : null,
-                  child: const Text('سداد 5000 من الائتمان'),
+                  child: const Text('سداد 5000'),
                 ),
               ),
             ],
@@ -123,33 +157,30 @@ class CompanyTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'الفريق — توظيف متخصصين',
+          title: 'الفريق المتخصص',
           accent: EmpireColors.indigo,
           icon: Icons.badge_rounded,
+          helpText:
+              'كل دور يُعين مرة واحدة فقط بمكافأة دائمة وراتب أسبوعي مستمر.',
         ),
         EmpireMetricGrid(
           items: [
             EmpireMetricItem(
-              'رواتب الفريق الأسبوعية',
-              '${s.staffSalaries}',
+              'رواتب الفريق',
+              '${s.staffSalaries}/أسبوع',
               accent: EmpireColors.amber,
             ),
             EmpireMetricItem(
-              'مكافأة البحث الدائمة',
+              'مكافأة البحث',
               '+${s.researchBoost}',
               accent: EmpireColors.cyan,
             ),
             EmpireMetricItem(
-              'مكافأة نمو المستخدمين',
+              'مكافأة النمو',
               '+${s.userGrowthBoost}',
               accent: EmpireColors.sky,
             ),
           ],
-        ),
-        const EmpireInfoBox(
-          text:
-              'كل دور يُعين مرة واحدة فقط: الثمن يُدفع مقدما والتأثير دائم، لكن الراتب يُخصم كل أسبوع بعد التعيين.',
-          accent: EmpireColors.indigo,
         ),
         for (final def in ManagementState.staffCatalog)
           Builder(
@@ -161,8 +192,8 @@ class CompanyTab extends StatelessWidget {
                 description: def.description,
                 stats: [
                   'التعيين: ${def.cost}',
-                  'راتب أسبوعي: ${def.salary}',
-                  'الأثر: ${def.effect}',
+                  'الراتب: ${def.salary}/أسبوع',
+                  def.effect,
                 ],
                 badgeText: hired ? 'معيّن ✓' : null,
                 badgeColor: hired ? EmpireColors.emerald : null,
@@ -177,6 +208,34 @@ class CompanyTab extends StatelessWidget {
               );
             },
           ),
+      ],
+    );
+  }
+
+  Widget _buildGoals() {
+    final s = state;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const EmpireSectionHeader(
+          title: 'الأهداف والإنجازات',
+          accent: EmpireColors.gold,
+          icon: Icons.emoji_events_rounded,
+        ),
+        GoalsPanel(
+          week: s.week,
+          users: s.users,
+          cash: s.cash,
+          modelLevel: s.modelLevel,
+          launchedCount: s.launchedProducts.length,
+          completedResearchCount: s.completedResearch.length,
+          completedModelCount: s.completedModels.length,
+          rank: s.rank,
+          reputation: s.reputation,
+          isBankrupt: s.isBankrupt,
+          leadershipVictory: s.leadershipVictory,
+          streakWeeks: streakWeeks,
+        ),
       ],
     );
   }

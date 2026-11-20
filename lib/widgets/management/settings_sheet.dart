@@ -174,7 +174,7 @@ Future<void> showEmpireSettingsSheet({
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'إمبراطورية الذكاء الاصطناعي — الإصدار 2.0.0\nالشركة الحالية: $companyName',
+                        'إمبراطورية الذكاء الاصطناعي — الإصدار 3.0.0\nالشركة الحالية: $companyName',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,

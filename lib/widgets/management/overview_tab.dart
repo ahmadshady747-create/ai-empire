@@ -2,30 +2,43 @@ import 'package:flutter/material.dart';
 
 import '../../analytics/company_history.dart';
 import '../../analytics/strategic_advisor.dart';
+import '../../interactive/decision_cards.dart';
+import '../../interactive/hq_pulses.dart';
+import '../../interactive/progression_stages.dart';
+import '../../interactive/rival_brands.dart';
 import '../../live_scene.dart';
 import '../../management.dart';
 import '../../theme/empire_theme.dart';
 import '../../tutorial.dart';
 import '../../world_events.dart';
-import 'charts_card.dart';
+import 'decision_card_widget.dart';
 import 'delta_banner.dart';
-import 'market_share_card.dart';
+import 'interactive_hq_bar.dart';
+import 'live_ticker.dart';
 import 'ui_components.dart';
 
-/// محور القيادة (نظرة عامة):
-/// يجمع التعليم التفاعلي، الفروقات الأسبوعية، المستشار الاستراتيجي،
-/// حدث العالم، المشهد الحي، الرسم البياني التاريخي، ترتيب السوق، ونشرة الأخبار.
+/// شاشة المقر النخبوية (الإصدار 3.0):
+/// نظيفة، تفاعلية، وخالية من التكدّس — تجمع شريط الأخبار الحية،
+/// بطاقة القرار العاجل، تعزيز التدريب اليدوي باللمس، نبضات المقر،
+/// مشهد الأفق الرقمي ضد OpenMind وAnthroCore وDeepVortex، وأهم توصية استراتيجية واحدة.
 class OverviewTab extends StatelessWidget {
   final String companyName;
   final ManagementState state;
+  final ProgressionUnlock progression;
   final WeekReport? lastReport;
   final WeekDelta? lastDelta;
-  final List<WeekSnapshot> history;
+  final List<HqPulse> pulses;
+  final Set<String> claimedPulseIds;
+  final bool manualBoostAvailable;
+  final DecisionCardModel? activeDecision;
   final int streakWeeks;
   final int tutorialStep;
   final bool eventSceneDismissed;
   final String? eventNote;
   final void Function(int navIndex, int subIndex) onJump;
+  final VoidCallback onManualBoost;
+  final void Function(HqPulse pulse) onClaimPulse;
+  final void Function(DecisionOption option) onChooseDecision;
   final VoidCallback onBuyTutorialData;
   final VoidCallback onStartTutorialResearch;
   final VoidCallback onSkipTutorialStep;
@@ -38,14 +51,21 @@ class OverviewTab extends StatelessWidget {
     super.key,
     required this.companyName,
     required this.state,
+    required this.progression,
     required this.lastReport,
     required this.lastDelta,
-    required this.history,
+    required this.pulses,
+    required this.claimedPulseIds,
+    required this.manualBoostAvailable,
+    required this.activeDecision,
     required this.streakWeeks,
     required this.tutorialStep,
     required this.eventSceneDismissed,
     required this.eventNote,
     required this.onJump,
+    required this.onManualBoost,
+    required this.onClaimPulse,
+    required this.onChooseDecision,
     required this.onBuyTutorialData,
     required this.onStartTutorialResearch,
     required this.onSkipTutorialStep,
@@ -72,14 +92,14 @@ class OverviewTab extends StatelessWidget {
 
     return Container(
       key: const Key('tutorial-banner'),
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(13),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: EmpireColors.gold.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: EmpireColors.gold.withValues(alpha: 0.65),
-          width: 1.5,
+          width: 1.4,
         ),
       ),
       child: Column(
@@ -87,30 +107,33 @@ class OverviewTab extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.school_rounded, color: EmpireColors.gold, size: 20),
+              const Icon(Icons.school_rounded, color: EmpireColors.gold, size: 19),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   tutorialStepTitle(tutorialStep),
                   style: const TextStyle(
-                    fontSize: 15.5,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: EmpireColors.gold,
                   ),
                 ),
               ),
+              TextButton(
+                onPressed: onSkipAllTutorial,
+                child: const Text('تخطي التعليم'),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
           Text(
             tutorialStepHint(tutorialStep),
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 12.5,
               color: EmpireColors.textPrimary,
             ),
           ),
           if (tutorialStep == 1) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             if (affordableData.isNotEmpty)
               OutlinedButton(
                 onPressed: onBuyTutorialData,
@@ -128,99 +151,70 @@ class OverviewTab extends StatelessWidget {
               ),
             ],
             if (affordableData.isEmpty && affordableResearch.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Text(
-                  'نقدك لا يكفي لأي إجراء الآن — اضغط «تخطي هذه الخطوة» ثم تقدم أسبوعا لتجمع إيرادا.',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: EmpireColors.textSecondary,
-                  ),
-                ),
+              TextButton(
+                onPressed: onSkipTutorialStep,
+                child: const Text('تخطي هذه الخطوة'),
               ),
-            TextButton(
-              onPressed: onSkipTutorialStep,
-              child: const Text('تخطي هذه الخطوة'),
-            ),
           ],
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: TextButton(
-              onPressed: onSkipAllTutorial,
-              child: const Text('تخطي التعليم'),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildAdvisorSection() {
+  Widget _buildTopAdvisorCard() {
     final adviceList = analyzeStrategy(state);
     if (adviceList.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const EmpireSectionHeader(
-          title: 'المستشار الاستراتيجي',
-          accent: EmpireColors.gold,
-          icon: Icons.tips_and_updates_rounded,
-        ),
-        for (final item in adviceList)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(color: item.color.withValues(alpha: 0.45)),
-            ),
-            child: Row(
+    final top = adviceList.first;
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: top.color.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: top.color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(top.icon, color: top.color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(item.icon, color: item.color, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: item.color,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.detail,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: EmpireColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                Text(
+                  'الخطوة المقترحة: ${top.title}',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: top.color,
                   ),
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () =>
-                      onJump(item.targetNavIndex, item.targetSubIndex),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    minimumSize: Size.zero,
+                const SizedBox(height: 2),
+                Text(
+                  top.detail,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: EmpireColors.textSecondary,
                   ),
-                  child: Text(item.actionLabel),
                 ),
               ],
             ),
           ),
-        const SizedBox(height: 6),
-      ],
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => onJump(top.targetNavIndex, top.targetSubIndex),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: Size.zero,
+              textStyle: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            child: Text(top.actionLabel),
+          ),
+        ],
+      ),
     );
   }
 
@@ -232,18 +226,43 @@ class OverviewTab extends StatelessWidget {
         !eventSceneDismissed;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          LiveMarketTicker(lastReport: lastReport, week: s.week),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                EmpireBadge(
+                  text: 'المرحلة ${progression.stage}/4 • ${progression.stageName}',
+                  color: EmpireColors.indigo,
+                ),
+                const Spacer(),
+                Text(
+                  'صافي الأسبوع: ${s.weeklyNet >= 0 ? '+${s.weeklyNet}' : '${s.weeklyNet}'}',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: s.weeklyNet >= 0
+                        ? EmpireColors.emerald
+                        : EmpireColors.coral,
+                  ),
+                ),
+              ],
+            ),
+          ),
           _buildTutorialBanner(),
           if (lastDelta != null) WeeklyDeltaBanner(delta: lastDelta!),
           if (showWorldEvent) ...[
             WorldEventScene(
               eventName: lastReport!.worldEvent,
-              eventEffect: lastReport!.lines.firstWhere(
-                (l) => l.startsWith('حدث عالمي'),
-                orElse: () => 'حدث عالمي دوري (سيناريو محاكاة، لا تنبؤ).',
+              eventEffect: brandizeText(
+                lastReport!.lines.firstWhere(
+                  (l) => l.startsWith('حدث عالمي'),
+                  orElse: () => 'حدث عالمي دوري (سيناريو محاكاة، لا تنبؤ).',
+                ),
               ),
               streakWeeks: streakWeeks,
               canBuyCompute: s.cash >= 4000 && s.computeAvailable < 200,
@@ -257,122 +276,99 @@ class OverviewTab extends StatelessWidget {
               onStartResearch: onEventStartResearch,
               onSaveCash: onEventSaveCash,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
           ],
+          if (!showWorldEvent && activeDecision != null)
+            DecisionCardWidget(
+              card: activeDecision!,
+              onChoose: onChooseDecision,
+            ),
           if (eventNote != null)
             EmpireInfoBox(
-              text: eventNote!,
+              text: brandizeText(eventNote!),
               accent: EmpireColors.cyan,
               icon: Icons.bolt_rounded,
             ),
+          if (manualBoostAvailable && !s.isBankrupt)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: ElevatedButton.icon(
+                onPressed: onManualBoost,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: EmpireColors.indigo,
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                ),
+                icon: const Icon(Icons.flash_on_rounded, color: EmpireColors.gold),
+                label: const Text('ضبط سريع للنموذج الآن (+4 تدريب مجاناً)'),
+              ),
+            ),
+          InteractiveHqBar(
+            pulses: pulses,
+            claimedIds: claimedPulseIds,
+            onClaim: onClaimPulse,
+          ),
           CompanyLiveScene(
             computeAvailable: s.computeAvailable,
             computeReserved: s.computeReserved,
             users: s.users,
             modelLevel: s.modelLevel,
-            rivalNames: [for (final r in s.rivals) r.name],
+            rivalNames: [
+              for (final r in s.rivals) resolveRivalBrand(r.name).shortName,
+            ],
             rivalLevels: [for (final r in s.rivals) r.modelLevel],
             reputation: s.reputation,
             isBankrupt: s.isBankrupt,
             leadershipVictory: s.leadershipVictory,
           ),
-          const SizedBox(height: 14),
-          _buildAdvisorSection(),
-          EmpireTrendChartCard(history: history),
-          MarketLeaderboardCard(companyName: companyName, state: s),
-          const EmpireSectionHeader(
-            title: 'نبض الشركة الأسبوعي',
-            accent: EmpireColors.cyan,
-            icon: Icons.analytics_rounded,
-          ),
-          EmpireMetricGrid(
-            items: [
-              EmpireMetricItem(
-                'السمعة',
-                '${s.reputation} / 100',
-                accent: EmpireColors.sky,
-              ),
-              EmpireMetricItem(
-                'أسابيع الصدارة المتتالية',
-                '${s.leadershipWeeks}',
-                accent: EmpireColors.gold,
-              ),
-              EmpireMetricItem(
-                'الإيراد الأسبوعي',
-                '${s.weeklyRevenue}',
-                accent: EmpireColors.emerald,
-              ),
-              EmpireMetricItem(
-                'التكلفة الأسبوعية',
-                '${s.weeklyCost}',
-                accent: EmpireColors.amber,
-              ),
-              EmpireMetricItem(
-                'صافي الأسبوع',
-                '${s.weeklyNet}',
-                accent: s.weeklyNet >= 0
-                    ? EmpireColors.emerald
-                    : EmpireColors.coral,
-              ),
-            ],
-          ),
-          if (s.lastWorldEvent.isNotEmpty)
-            EmpireInfoBox(
-              text:
-                  'آخر حدث عالمي: ${s.lastWorldEvent} — سيناريو محاكاة مستوحى من اتجاهات عامة، ليس بيانات رسمية ولا تنبؤات.',
-              accent: EmpireColors.sky,
-              icon: Icons.public_rounded,
+          _buildTopAdvisorCard(),
+          if (lastReport != null && lastReport!.lines.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const EmpireSectionHeader(
+              title: 'ملخص الأسبوع الأخير',
+              accent: EmpireColors.indigo,
+              icon: Icons.newspaper_rounded,
             ),
-          const EmpireSectionHeader(
-            title: 'أخبار الأسبوع الأخير',
-            accent: EmpireColors.indigo,
-            icon: Icons.newspaper_rounded,
-          ),
-          Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: EmpireColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: EmpireColors.border),
-            ),
-            child: lastReport == null
-                ? const Text(
-                    'لم يمر أسبوع بعد. اضغط "تقدم أسبوعا" لترى أول تقرير.',
-                    style: TextStyle(color: EmpireColors.textSecondary),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final line in lastReport!.lines)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.only(top: 6),
-                                child: Icon(
-                                  Icons.circle,
-                                  size: 6,
-                                  color: EmpireColors.cyan,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  line,
-                                  style: const TextStyle(
-                                    fontSize: 13.5,
-                                    color: EmpireColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ],
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: EmpireColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: EmpireColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final line in lastReport!.lines.take(4))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6),
+                            child: Icon(
+                              Icons.circle,
+                              size: 6,
+                              color: EmpireColors.cyan,
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              brandizeText(line),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: EmpireColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

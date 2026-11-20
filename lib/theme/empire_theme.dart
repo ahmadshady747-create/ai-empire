@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 
-/// الهوية البصرية الداكنة للعبة "إمبراطورية الذكاء الاصطناعي":
-/// ألوان مختبر ذكاء اصطناعي عصري مع تباين عالٍ وتدرج بصري واضح.
+/// الهوية البصرية النخبوية للإصدار 3.0 (Obsidian + Cyan + Royal Gold):
+/// عمق بصري عالٍ، مساحات نظيفة، تباين حاد ومريح للعين.
 class EmpireColors {
   const EmpireColors._();
 
-  static const Color bg = Color(0xFF090E1A);
-  static const Color surface = Color(0xFF111827);
-  static const Color surfaceElevated = Color(0xFF182235);
-  static const Color border = Color(0xFF25334D);
+  static const Color bg = Color(0xFF060911);
+  static const Color surface = Color(0xFF0F1624);
+  static const Color surfaceElevated = Color(0xFF162033);
+  static const Color border = Color(0xFF21304A);
 
   static const Color cyan = Color(0xFF00E5C4);
-  static const Color indigo = Color(0xFF7C6BFF);
-  static const Color gold = Color(0xFFF5B942);
+  static const Color indigo = Color(0xFF8B7CFF);
+  static const Color gold = Color(0xFFF5C451);
   static const Color emerald = Color(0xFF22C55E);
   static const Color coral = Color(0xFFF43F5E);
   static const Color amber = Color(0xFFF59E0B);
   static const Color sky = Color(0xFF38BDF8);
 
-  static const Color textPrimary = Color(0xFFF1F5F9);
+  static const Color textPrimary = Color(0xFFF8FAFC);
   static const Color textSecondary = Color(0xFF94A3B8);
   static const Color textMuted = Color(0xFF64748B);
 }
@@ -56,7 +56,7 @@ ThemeData buildEmpireTheme() {
       centerTitle: false,
       titleTextStyle: TextStyle(
         color: EmpireColors.textPrimary,
-        fontSize: 19,
+        fontSize: 18.5,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.2,
       ),
@@ -66,22 +66,22 @@ ThemeData buildEmpireTheme() {
       elevation: 0,
       margin: EdgeInsets.symmetric(vertical: 5),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(16)),
+        borderRadius: BorderRadius.all(Radius.circular(18)),
         side: BorderSide(color: EmpireColors.border, width: 1),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: EmpireColors.cyan,
-        foregroundColor: const Color(0xFF04221D),
+        foregroundColor: const Color(0xFF031F1A),
         disabledBackgroundColor: EmpireColors.surfaceElevated,
         disabledForegroundColor: EmpireColors.textMuted,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
         textStyle: const TextStyle(
           fontSize: 15,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
         ),
       ),
     ),
@@ -93,7 +93,7 @@ ThemeData buildEmpireTheme() {
         disabledForegroundColor: EmpireColors.textMuted,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(13),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         textStyle: const TextStyle(
@@ -109,11 +109,11 @@ ThemeData buildEmpireTheme() {
         side: const BorderSide(color: EmpireColors.border, width: 1.2),
         backgroundColor: EmpireColors.surfaceElevated,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(13),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         textStyle: const TextStyle(
-          fontSize: 14,
+          fontSize: 13.5,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -131,7 +131,7 @@ ThemeData buildEmpireTheme() {
       backgroundColor: EmpireColors.surface,
       surfaceTintColor: Colors.transparent,
       indicatorColor: EmpireColors.cyan.withValues(alpha: 0.16),
-      height: 66,
+      height: 62,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return TextStyle(

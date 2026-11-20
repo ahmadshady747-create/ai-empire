@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../../interactive/progression_stages.dart';
 import '../../management.dart';
 import '../../theme/empire_theme.dart';
 import 'ui_components.dart';
 
-/// محور التقنية: يضم النماذج والبحث والبيانات والحوسبة مع تحكم مباشر بالتبويب الفرعي.
+/// محور التقنية المبسط: يضم النماذج والبحث والبيانات والحوسبة مع فتح تدريجي وزر شرح (?).
 class TechTab extends StatelessWidget {
   final ManagementState state;
+  final ProgressionUnlock progression;
   final int subIndex;
   final ValueChanged<int> onSubChanged;
+  final VoidCallback onUnlockAll;
   final void Function(VoidCallback action) onMutate;
 
   const TechTab({
     super.key,
     required this.state,
+    required this.progression,
     required this.subIndex,
     required this.onSubChanged,
+    required this.onUnlockAll,
     required this.onMutate,
   });
 
@@ -25,6 +30,10 @@ class TechTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locked = <int>{
+      if (!progression.computeUnlocked) 3,
+    };
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
       child: Column(
@@ -34,11 +43,20 @@ class TechTab extends StatelessWidget {
             labels: _subTabs,
             selectedIndex: subIndex,
             onChanged: onSubChanged,
+            lockedIndices: locked,
           ),
           if (subIndex == 0) _buildModels(),
           if (subIndex == 1) _buildResearch(),
           if (subIndex == 2) _buildData(),
-          if (subIndex == 3) _buildCompute(),
+          if (subIndex == 3)
+            progression.computeUnlocked
+                ? _buildCompute()
+                : EmpireLockedPanel(
+                    title: 'الحوسبة والبنية التحتية',
+                    unlockHint:
+                        'تُفتح تلقائياً في الأسبوع 2 أو بعد إطلاق أول منتج حتى تبدأ بسلاسة.',
+                    onUnlockAll: onUnlockAll,
+                  ),
         ],
       ),
     );
@@ -50,14 +68,16 @@ class TechTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'النماذج — وظائف بأثمان ومدد',
+          title: 'النماذج الذكية',
           accent: EmpireColors.indigo,
           icon: Icons.auto_awesome_rounded,
+          helpText:
+              'وظيفة نموذج واحدة نشطة فقط: الجيل الجديد يرفع المستوى ويصفّر التدريب، التقطير يرخّص الاستدلال، والاسترجاع يرفع السمعة والنمو.',
         ),
         EmpireMetricGrid(
           items: [
             EmpireMetricItem(
-              'مستوى النموذج الرئيسي',
+              'مستوى نموذجك',
               '${s.modelLevel}',
               accent: EmpireColors.cyan,
             ),
@@ -66,17 +86,9 @@ class TechTab extends StatelessWidget {
               '${s.bestRivalLevel}',
               accent: EmpireColors.amber,
             ),
-            EmpireMetricItem('تقدم التدريب', '${s.trainingProgress} / 100'),
-            EmpireMetricItem(
-              'تكلفة الاستدلال للمستخدم',
-              '${s.inferencePerUser}',
-            ),
+            EmpireMetricItem('تقدم التدريب', '${s.trainingProgress}%'),
+            EmpireMetricItem('تكلفة الاستدلال', '${s.inferencePerUser}'),
           ],
-        ),
-        const EmpireInfoBox(
-          text:
-              'وظيفة نموذج واحدة نشطة فقط: الجيل الجديد وحده يرفع المستوى لكنه يصفّر تقدم التدريب، والتقطير يرخّص الاستدلال دون رفع المستوى، والاسترجاع يرفع السمعة والنمو دون رفع المستوى.',
-          accent: EmpireColors.indigo,
         ),
         if (s.activeModelJob != null)
           _ActiveJobCard(
@@ -98,7 +110,7 @@ class TechTab extends StatelessWidget {
                 stats: [
                   'الثمن: ${def.cost}',
                   'المدة: ${def.weeks} أسابيع',
-                  'عند الاكتمال: ${def.effect}',
+                  def.effect,
                 ],
                 badgeText: done
                     ? 'مكتمل ✓'
@@ -131,35 +143,26 @@ class TechTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'البحث — مشاريع بأثمان ومدد',
+          title: 'مختبر البحث',
           accent: EmpireColors.cyan,
           icon: Icons.science_rounded,
+          helpText:
+              'عند اكتمال البحث أو التدريب يرتفع مستوى النموذج درجة. مشروع بحثي واحد نشط فقط ويمنحك مكافآت دائمة.',
         ),
         EmpireMetricGrid(
           items: [
-            EmpireMetricItem('تقدم البحث', '${s.researchProgress} / 100'),
-            EmpireMetricItem('تقدم التدريب', '${s.trainingProgress} / 100'),
+            EmpireMetricItem('تقدم البحث', '${s.researchProgress}%'),
             EmpireMetricItem(
-              'مكافأة البحث الدائمة',
+              'مكافأة البحث',
               '+${s.researchBoost}',
               accent: EmpireColors.cyan,
             ),
             EmpireMetricItem(
-              'مكافأة التدريب الدائمة',
+              'مكافأة التدريب',
               '+${s.trainingBoost}',
               accent: EmpireColors.indigo,
             ),
-            EmpireMetricItem(
-              'مكافأة نمو المستخدمين',
-              '+${s.userGrowthBoost}',
-              accent: EmpireColors.sky,
-            ),
           ],
-        ),
-        const EmpireInfoBox(
-          text:
-              'عند اكتمال البحث أو التدريب يرتفع مستوى النموذج درجة. مشروع بحثي واحد نشط فقط: الثمن يُدفع مقدما والتأثير دائم ويقوّي نظاما آخر.',
-          accent: EmpireColors.cyan,
         ),
         if (s.activeResearch != null)
           _ActiveJobCard(
@@ -181,7 +184,7 @@ class TechTab extends StatelessWidget {
                 stats: [
                   'الثمن: ${def.cost}',
                   'المدة: ${def.weeks} أسابيع',
-                  'عند الاكتمال: ${def.effect}',
+                  def.effect,
                 ],
                 badgeText: done
                     ? 'مكتمل ✓'
@@ -214,9 +217,11 @@ class TechTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'البيانات — شراء وتنظيف وتجديد',
+          title: 'البيانات والتغذية',
           accent: EmpireColors.sky,
           icon: Icons.dataset_rounded,
+          helpText:
+              'الحداثة تنقص نقطتين كل أسبوع. جودة تحت 40 تبطئ التدريب وحداثة تحت 50 تبطئ البحث، وجودة 80+ تسرّع التدريب.',
         ),
         EmpireMetricGrid(
           items: [
@@ -239,20 +244,39 @@ class TechTab extends StatelessWidget {
             ),
           ],
         ),
-        const EmpireInfoBox(
-          text:
-              'الحداثة تتقادم نقطتين كل أسبوع. جودة تحت 40 تبطئ التدريب، وحداثة تحت 50 تبطئ البحث، وجودة 80 فأعلى تسرّع التدريب. التنظيف يرفع الجودة ويسقط كمية، والتجديد يرفع الحداثة فقط.',
-          accent: EmpireColors.sky,
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: (s.cash >= 3000 &&
+                        s.dataQuality < 100 &&
+                        s.dataQuantity >= 50)
+                    ? () => onMutate(s.cleanData)
+                    : null,
+                child: const Text('تنظيف (3000 • +15 جودة)'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: (s.cash >= 2000 && s.dataFreshness < 100)
+                    ? () => onMutate(s.refreshData)
+                    : null,
+                child: const Text('تجديد (2000 • +25 حداثة)'),
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 8),
         for (final def in ManagementState.dataCatalog)
           EmpireActionCard(
             title: def.name,
             description: def.description,
             stats: [
               'الثمن: ${def.cost}',
-              'الكمية: +${def.quantity}',
-              'الجودة: ${_signed(def.qualityDelta)}',
-              'الحداثة: ${_signed(def.freshnessDelta)}',
+              'كمية: +${def.quantity}',
+              'جودة: ${_signed(def.qualityDelta)}',
+              'حداثة: ${_signed(def.freshnessDelta)}',
             ],
             footer: OutlinedButton(
               onPressed: s.cash >= def.cost
@@ -261,30 +285,6 @@ class TechTab extends StatelessWidget {
               child: Text(s.cash >= def.cost ? 'شراء المجموعة' : 'نقد غير كاف'),
             ),
           ),
-        EmpireActionCard(
-          title: 'تنظيف البيانات',
-          description: 'يرفع الجودة مع إسقاط جزء من الكمية.',
-          stats: const ['الثمن: 3000', 'الجودة: +15', 'الكمية: −50'],
-          footer: OutlinedButton(
-            onPressed: (s.cash >= 3000 &&
-                    s.dataQuality < 100 &&
-                    s.dataQuantity >= 50)
-                ? () => onMutate(s.cleanData)
-                : null,
-            child: const Text('تنظيف البيانات'),
-          ),
-        ),
-        EmpireActionCard(
-          title: 'تجديد البيانات',
-          description: 'يرفع الحداثة فقط دون تغيير الكمية أو الجودة.',
-          stats: const ['الثمن: 2000', 'الحداثة: +25'],
-          footer: OutlinedButton(
-            onPressed: (s.cash >= 2000 && s.dataFreshness < 100)
-                ? () => onMutate(s.refreshData)
-                : null,
-            child: const Text('تجديد البيانات'),
-          ),
-        ),
       ],
     );
   }
@@ -295,9 +295,11 @@ class TechTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'الحوسبة والبنية التحتية',
+          title: 'الحوسبة والخوادم',
           accent: EmpireColors.amber,
           icon: Icons.memory_rounded,
+          helpText:
+              'حجز 20+ وحدة يسرّع التدريب، لكن حجز 60+ وحدة دون عقد صيانة يجهد الخوادم ويبطئ التدريب 4 نقاط.',
         ),
         EmpireMetricGrid(
           items: [
@@ -315,21 +317,14 @@ class TechTab extends StatelessWidget {
             ),
             if (s.maintenanceWeeks > 0)
               EmpireMetricItem(
-                'صيانة وتبريد نشطة',
+                'صيانة نشطة',
                 '${s.maintenanceWeeks} أسبوع',
                 accent: EmpireColors.emerald,
               ),
           ],
         ),
-        const EmpireInfoBox(
-          text:
-              'المحجوزة تُستهلك في أسبوعها: 20 وحدة فأكثر تسرّع التدريب، لكن حجز 60 وحدة فأكثر يجهد الموثوقية ويبطئه 4 نقاط — إلا بعقد صيانة وتبريد نشط لأربعة أسابيع.',
-          accent: EmpireColors.amber,
-        ),
         EmpireActionCard(
           title: 'توسيع الحوسبة',
-          description:
-              'إضافة 25 وحدة حوسبة دائمة إلى السعة المتاحة (الحد الأقصى 200).',
           stats: const ['الثمن: 4000', 'السعة: +25 وحدة'],
           footer: OutlinedButton(
             onPressed: (s.cash >= 4000 && s.computeAvailable < 200)
@@ -340,7 +335,6 @@ class TechTab extends StatelessWidget {
         ),
         EmpireActionCard(
           title: 'تخصيص حوسبة للتدريب',
-          description: 'حجز وحدات من المتاح لتسريع تدريب النموذج هذا الأسبوع.',
           footer: Row(
             children: [
               Expanded(
@@ -348,7 +342,7 @@ class TechTab extends StatelessWidget {
                   onPressed: s.computeAvailable >= 20
                       ? () => onMutate(() => s.reserveCompute(20))
                       : null,
-                  child: const Text('حجز 20 وحدة للتدريب'),
+                  child: const Text('حجز 20 وحدة'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -357,7 +351,7 @@ class TechTab extends StatelessWidget {
                   onPressed: s.computeAvailable >= 40
                       ? () => onMutate(() => s.reserveCompute(40))
                       : null,
-                  child: const Text('حجز 40 وحدة للتدريب'),
+                  child: const Text('حجز 40 وحدة'),
                 ),
               ),
             ],
@@ -365,7 +359,6 @@ class TechTab extends StatelessWidget {
         ),
         EmpireActionCard(
           title: 'عقد صيانة وتبريد',
-          description: 'يمتص إجهاد الحوسبة العالية لمدة 4 أسابيع متتالية.',
           stats: const ['الثمن: 5000', 'المدة: 4 أسابيع'],
           badgeText: s.maintenanceWeeks > 0 ? 'نشط ✓' : null,
           badgeColor: s.maintenanceWeeks > 0 ? EmpireColors.emerald : null,
@@ -373,7 +366,7 @@ class TechTab extends StatelessWidget {
             onPressed: (s.cash >= 5000 && s.maintenanceWeeks == 0)
                 ? () => onMutate(s.buyMaintenance)
                 : null,
-            child: const Text('عقد صيانة وتبريد (5000، 4 أسابيع)'),
+            child: const Text('تفعيل عقد الصيانة (5000)'),
           ),
         ),
       ],

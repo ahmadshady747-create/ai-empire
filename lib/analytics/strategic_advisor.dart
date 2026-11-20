@@ -62,7 +62,7 @@ List<StrategicAdvice> analyzeStrategy(ManagementState s) {
             'المدى النقدي أقل من 4 أسابيع. أطلق منتجاً، فعّل خدمة، أو اسحب من الائتمان قبل الإفلاس.',
         actionLabel: 'المالية',
         targetNavIndex: 3,
-        targetSubIndex: 0,
+        targetSubIndex: 1,
         severity: AdviceSeverity.critical,
       ),
     );

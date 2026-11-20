@@ -1,24 +1,32 @@
 import 'package:flutter/material.dart';
 
+import '../../interactive/progression_stages.dart';
+import '../../interactive/rival_brands.dart';
 import '../../management.dart';
 import '../../theme/empire_theme.dart';
+import 'launch_hype_modal.dart';
 import 'market_share_card.dart';
 import 'ui_components.dart';
 
-/// محور السوق: يضم المنتجات والخدمات والمنافسين مع لوحة الصدارة والتحكم المباشر.
+/// محور السوق (الإصدار 3.0): المنتجات باحتفالية الإطلاق، الخدمات،
+/// وساحة المنافسين بشعارات وأسماء شبه حقيقية (OpenMind, AnthroCore, DeepVortex).
 class MarketTab extends StatelessWidget {
   final String companyName;
   final ManagementState state;
+  final ProgressionUnlock progression;
   final int subIndex;
   final ValueChanged<int> onSubChanged;
+  final VoidCallback onUnlockAll;
   final void Function(VoidCallback action) onMutate;
 
   const MarketTab({
     super.key,
     required this.companyName,
     required this.state,
+    required this.progression,
     required this.subIndex,
     required this.onSubChanged,
+    required this.onUnlockAll,
     required this.onMutate,
   });
 
@@ -43,8 +51,13 @@ class MarketTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locked = <int>{
+      if (!progression.servicesUnlocked) 1,
+      if (!progression.rivalsUnlocked) 2,
+    };
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -52,47 +65,58 @@ class MarketTab extends StatelessWidget {
             labels: _subTabs,
             selectedIndex: subIndex,
             onChanged: onSubChanged,
+            lockedIndices: locked,
           ),
-          if (subIndex == 0) _buildProducts(),
-          if (subIndex == 1) _buildServices(),
-          if (subIndex == 2) _buildRivals(),
+          if (subIndex == 0) _buildProducts(context),
+          if (subIndex == 1)
+            progression.servicesUnlocked
+                ? _buildServices()
+                : EmpireLockedPanel(
+                    title: 'الخدمات التجارية',
+                    unlockHint:
+                        'تُفتح في المرحلة 3 (الأسبوع 4 أو مستوى نموذج 2) لتوسيع مصادر دخلك.',
+                    onUnlockAll: onUnlockAll,
+                  ),
+          if (subIndex == 2)
+            progression.rivalsUnlocked
+                ? _buildRivals()
+                : EmpireLockedPanel(
+                    title: 'ساحة المنافسين العالميين',
+                    unlockHint:
+                        'تُفتح في المرحلة 3 لمنافسة OpenMind وAnthroCore وDeepVortex واستقطاب خبرائهم.',
+                    onUnlockAll: onUnlockAll,
+                  ),
         ],
       ),
     );
   }
 
-  Widget _buildProducts() {
+  Widget _buildProducts(BuildContext context) {
     final s = state;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'المنتجات — إطلاق بأثمان ونتائج',
+          title: 'المنتجات في السوق',
           accent: EmpireColors.emerald,
           icon: Icons.rocket_launch_rounded,
+          helpText:
+              'كل منتج مطلق يدر إيراداً ويجلب مستخدمين كل أسبوع مقابل تكلفة صيانة. التسعير المميز يرفع الإيراد +30% مقابل نمو أبطأ.',
         ),
         EmpireMetricGrid(
           items: [
             EmpireMetricItem('المستخدمون', '${s.users}', accent: EmpireColors.sky),
-            EmpireMetricItem('سعر المستخدم', '${s.pricePerUser}'),
-            EmpireMetricItem('تكلفة الاستدلال', '${s.inferencePerUser}'),
             EmpireMetricItem(
-              'إيراد المنتجات الأسبوعي',
+              'إيراد المنتجات',
               '${s.effectiveProductsRevenue}',
               accent: EmpireColors.emerald,
             ),
-            EmpireMetricItem('صيانة المنتجات', '${s.productsCost}'),
             EmpireMetricItem(
-              'نمو المستخدمين',
+              'النمو الأسبوعي',
               '+${s.effectiveProductsGrowth}',
               accent: EmpireColors.cyan,
             ),
           ],
-        ),
-        const EmpireInfoBox(
-          text:
-              'كل منتج مطلق يدر إيراده ويكلف صيانته أسبوعيا. التسعير المميز قرار أسبوعي يرفع الإيراد +30% مقابل نمو أبطأ (-2).',
-          accent: EmpireColors.emerald,
         ),
         ElevatedButton.icon(
           onPressed: s.launchedProducts.isEmpty
@@ -121,15 +145,30 @@ class MarketTab extends StatelessWidget {
                 stats: [
                   'الإطلاق: ${def.cost}',
                   'إيراد: ${def.revenue}/أسبوع',
-                  'صيانة: ${def.maintenance}/أسبوع',
-                  'نمو: +${def.growth} مستخدم/أسبوع',
+                  'صيانة: ${def.maintenance}',
+                  'نمو: +${def.growth}',
                 ],
                 badgeText: launched ? 'مطلق ✓' : null,
                 badgeColor: launched ? EmpireColors.emerald : null,
                 footer: !launched
                     ? OutlinedButton(
                         onPressed: canAfford
-                            ? () => onMutate(() => s.launchProduct(def.id))
+                            ? () {
+                                var ok = false;
+                                onMutate(() {
+                                  ok = s.launchProduct(def.id);
+                                });
+                                if (ok && context.mounted) {
+                                  showLaunchHypeModal(
+                                    context: context,
+                                    title: 'إطلاق ناجح: ${def.name}!',
+                                    subtitle:
+                                        'دخل منتجك السوق وبدأ يجلب +${def.growth} مستخدم و+${def.revenue} إيراد أسبوعياً.',
+                                    state: s,
+                                    isModelUpgrade: false,
+                                  );
+                                }
+                              }
                             : null,
                         child: Text(canAfford ? 'إطلاق المنتج' : 'نقد غير كاف'),
                       )
@@ -150,9 +189,11 @@ class MarketTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'الخدمات — تنويع الإيراد',
+          title: 'الخدمات التجارية',
           accent: EmpireColors.gold,
           icon: Icons.handshake_rounded,
+          helpText:
+              'تنويع الدخل يقلل خطر الإفلاس، لكن كل خدمة لها ثمن متشابك في الحوسبة أو تركيز الفريق.',
         ),
         EmpireMetricGrid(
           items: [
@@ -161,23 +202,13 @@ class MarketTab extends StatelessWidget {
               '${s.servicesRevenue}',
               accent: EmpireColors.emerald,
             ),
-            EmpireMetricItem('تكلفة الخدمات', '${s.servicesCost}'),
             EmpireMetricItem(
               'حوسبة الخدمات',
               '${s.servicesCompute}',
               accent: EmpireColors.amber,
             ),
-            EmpireMetricItem(
-              'الائتمان المستخدم',
-              '${s.creditUsed} / ${s.creditLimit}',
-            ),
             EmpireMetricItem('المدى مع الائتمان', runwayWithCredit),
           ],
-        ),
-        const EmpireInfoBox(
-          text:
-              'الشرط الأول للبقاء ألا تفلس. التنويع عبر الخدمات يقلل خطر الإفلاس لكنه يستهلك حوسبة أو فرقاً ويشتت التركيز عن نموذجك الرئيسي.',
-          accent: EmpireColors.gold,
         ),
         for (final def in ManagementState.serviceCatalog)
           Builder(
@@ -185,7 +216,7 @@ class MarketTab extends StatelessWidget {
               final active = s.services.any((x) => x.id == def.id);
               final activeClient = s.services
                   .where((x) => x.id == def.id)
-                  .map((x) => x.clientName)
+                  .map((x) => resolveRivalBrand(x.clientName).shortName)
                   .join();
               return EmpireActionCard(
                 title: def.name,
@@ -194,7 +225,6 @@ class MarketTab extends StatelessWidget {
                   'إيراد: ${def.revenue}/أسبوع',
                   'تكلفة: ${def.cost}/أسبوع',
                   if (def.compute > 0) 'حوسبة: ${def.compute}',
-                  if (def.big) 'عميل كبير',
                   if (active && activeClient.isNotEmpty)
                     'العميل: $activeClient',
                 ],
@@ -223,55 +253,94 @@ class MarketTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const EmpireSectionHeader(
-          title: 'المنافسون (خياليون)',
+          title: 'عمالقة الذكاء المنافسون',
           accent: EmpireColors.coral,
           icon: Icons.groups_3_rounded,
+          helpText:
+              'استقطاب خبير يكلف 9000، يخفض مستوى المنافس درجة، ويرفع تسريع تدريبك نقطتين دائماً (مرة واحدة لكل منافس). الأسماء خيالية مستوحاة من عالم التقنية.',
         ),
         MarketLeaderboardCard(companyName: companyName, state: s),
-        const EmpireInfoBox(
-          text:
-              'استقطاب خبير من منافس يكلف 9000 مقدما، يخفض مستوى المنافس درجة (لا تحت مستوى 1)، ويرفع تسريع تدريبك نقطتين دائما. مرة واحدة لكل منافس فقط.',
-          accent: EmpireColors.coral,
-        ),
         for (final rival in s.rivals)
           Builder(
             builder: (_) {
+              final brand = resolveRivalBrand(rival.name);
               final poached = s.poachedRivals.contains(rival.name);
               final canPoach = !poached &&
                   rival.modelLevel > 1 &&
                   s.cash >= ManagementState.poachCost;
-              return EmpireActionCard(
-                title: rival.name,
-                description: 'الاستراتيجية: ${rival.strategy}',
-                stats: [
-                  'مستوى النموذج: ${rival.modelLevel}',
-                ],
-                badgeText: poached ? 'تم الاستقطاب' : null,
-                badgeColor: poached ? EmpireColors.amber : null,
-                footer: OutlinedButton(
-                  onPressed: canPoach
-                      ? () => onMutate(() => s.poachRival(rival.name))
-                      : null,
-                  child: Text(
-                    poached
-                        ? 'استُقطب منه من قبل'
-                        : rival.modelLevel <= 1
-                            ? 'مستواه 1 فلا ما يُضعف'
-                            : s.cash < ManagementState.poachCost
-                                ? 'نقد غير كاف'
-                                : 'استقطاب خبير (9000)',
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 5),
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: EmpireColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: brand.color.withValues(alpha: 0.45),
+                    width: 1.2,
                   ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: brand.color.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(brand.icon, color: brand.color, size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                brand.displayName,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: EmpireColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${brand.headquarters} • ${brand.tagline}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: EmpireColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        EmpireBadge(
+                          text: 'مستوى ${rival.modelLevel}',
+                          color: brand.color,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton(
+                      onPressed: canPoach
+                          ? () => onMutate(() => s.poachRival(rival.name))
+                          : null,
+                      child: Text(
+                        poached
+                            ? 'تم استقطاب خبير سابقاً ✓'
+                            : rival.modelLevel <= 1
+                                ? 'مستواه 1 — لا يمكن إضعافه'
+                                : s.cash < ManagementState.poachCost
+                                    ? 'نقد غير كاف (تحتاج 9000)'
+                                    : 'استقطاب خبير من ${brand.shortName} (9000)',
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
           ),
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
-          child: Text(
-            'أسماء خيالية من تأليف اللعبة، لا تشير لأي شركة حقيقية.',
-            style: TextStyle(fontSize: 12, color: EmpireColors.textMuted),
-          ),
-        ),
       ],
     );
   }

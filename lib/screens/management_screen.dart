@@ -6,22 +6,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../analytics/career_stats.dart';
 import '../analytics/company_history.dart';
 import '../game_feel.dart';
+import '../interactive/decision_cards.dart';
+import '../interactive/hq_pulses.dart';
+import '../interactive/progression_stages.dart';
 import '../management.dart';
 import '../theme/empire_theme.dart';
 import '../tutorial.dart';
+import '../widgets/management/bottom_action_dock.dart';
 import '../widgets/management/command_hud.dart';
-import '../widgets/management/company_tab.dart';
+import '../widgets/management/empire_tab.dart';
 import '../widgets/management/endgame_modal.dart';
+import '../widgets/management/launch_hype_modal.dart';
 import '../widgets/management/market_tab.dart';
 import '../widgets/management/overview_tab.dart';
-import '../widgets/management/progress_tab.dart';
 import '../widgets/management/settings_sheet.dart';
 import '../widgets/management/tech_tab.dart';
 
-/// لوحة إدارة "إمبراطورية الذكاء الاصطناعي":
-/// 5 محاور رئيسية، شريط قيادة HUD تفاعلي، تسريع ذكي 4×،
-/// رسوم بيانية تاريخية، مستشار استراتيجي، سجل مسيرة دائم،
-/// مستويات صعوبة، نسخ احتياطي واستعادة، وإعدادات خصوصية كاملة للمتاجر.
+/// لوحة إدارة "إمبراطورية الذكاء الاصطناعي" — الإصدار 3.0 النخبوي:
+/// واجهة أبسط بـ 4 محاور رئيسية (المقر، التطوير، السوق، الإمبراطورية)،
+/// شريط علوي نحيف، شريط أفعال سفلي تحت الإبهام، شركات منافسة شبه حقيقية،
+/// وتفاعل فوري باللمس وبطاقات قرار سريعة.
 class ManagementScreen extends StatefulWidget {
   const ManagementScreen({super.key});
 
@@ -35,6 +39,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
   static const _nameKey = 'ai_company_name_v1';
   static const _careerKey = 'ai_career_stats_v1';
   static const _tutorialKey = 'ai_tutorial_done_v1';
+  static const _unlockAllKey = 'ai_unlock_all_v25';
 
   ManagementState _state = ManagementState();
   CareerStats _career = const CareerStats();
@@ -42,6 +47,12 @@ class _ManagementScreenState extends State<ManagementScreen> {
   WeekReport? _lastReport;
   WeekDelta? _lastDelta;
   List<WeekSnapshot> _history = [];
+  List<HqPulse> _pulses = [];
+  final Set<String> _claimedPulseIds = {};
+  bool _manualBoostAvailable = true;
+  DecisionCardModel? _activeDecision;
+  bool _unlockAllSystems = false;
+
   String? _saveStatus;
   bool _soundOn = true;
   int _streakWeeks = 0;
@@ -53,12 +64,13 @@ class _ManagementScreenState extends State<ManagementScreen> {
   int _navIndex = 0;
   int _techSub = 0;
   int _marketSub = 0;
-  int _companySub = 0;
+  int _empireSub = 0;
 
   @override
   void initState() {
     super.initState();
     _history = [WeekSnapshot.fromState(_state)];
+    _pulses = generateWeeklyPulses(_state.week, _state);
     _loadSaved();
     _loadTutorialDone();
   }
@@ -68,11 +80,25 @@ class _ManagementScreenState extends State<ManagementScreen> {
     if (prefs.getBool(_tutorialKey) == true && mounted) {
       setState(() => _tutorialStep = 3);
     }
+    if (prefs.getBool(_unlockAllKey) == true && mounted) {
+      setState(() => _unlockAllSystems = true);
+    }
   }
 
   Future<void> _persistTutorialDone(bool done) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_tutorialKey, done);
+  }
+
+  Future<void> _unlockAllNow() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_unlockAllKey, true);
+    if (!mounted) return;
+    setState(() {
+      _unlockAllSystems = true;
+      _eventNote = 'تم فتح جميع الأنظمة المتقدمة فوراً!';
+    });
+    GameFeel.playSuccess(soundOn: _soundOn);
   }
 
   void _finishTutorialStep(int next) {
@@ -122,6 +148,8 @@ class _ManagementScreenState extends State<ManagementScreen> {
       setState(() {
         _state = restored;
         _history = restoredHistory;
+        _pulses = generateWeeklyPulses(restored.week, restored);
+        _claimedPulseIds.clear();
         _career = _career.recordProgress(restored);
         _endgameShown = restored.isBankrupt || restored.leadershipVictory;
         _saveStatus =
@@ -162,10 +190,10 @@ class _ManagementScreenState extends State<ManagementScreen> {
 
   void _jumpTo(int navIndex, int subIndex) {
     setState(() {
-      _navIndex = navIndex;
-      if (navIndex == 1) _techSub = subIndex;
-      if (navIndex == 2) _marketSub = subIndex;
-      if (navIndex == 3) _companySub = subIndex;
+      _navIndex = navIndex.clamp(0, 3);
+      if (_navIndex == 1) _techSub = subIndex;
+      if (_navIndex == 2) _marketSub = subIndex;
+      if (_navIndex == 3) _empireSub = subIndex;
     });
     GameFeel.playSuccess(soundOn: _soundOn);
   }
@@ -178,9 +206,43 @@ class _ManagementScreenState extends State<ManagementScreen> {
     GameFeel.playSuccess(soundOn: _soundOn);
   }
 
+  void _doManualBoost() {
+    if (!_manualBoostAvailable || _state.isBankrupt) return;
+    setState(() {
+      _state.trainingProgress = (_state.trainingProgress + 4).clamp(0, 100);
+      _manualBoostAvailable = false;
+      _eventNote = 'ضبطت معاملات النموذج يدوياً: +4 تقدم في التدريب!';
+      _recordSnapshot();
+    });
+    GameFeel.playSuccess(soundOn: _soundOn);
+  }
+
+  void _claimPulse(HqPulse pulse) {
+    if (_claimedPulseIds.contains(pulse.id)) return;
+    setState(() {
+      pulse.apply(_state);
+      _claimedPulseIds.add(pulse.id);
+      _eventNote = 'اقتنصت فرصة المقر: ${pulse.title} (${pulse.rewardLabel})!';
+      _recordSnapshot();
+    });
+    GameFeel.playSuccess(soundOn: _soundOn);
+  }
+
+  void _chooseDecision(DecisionOption option) {
+    setState(() {
+      option.apply(_state);
+      _activeDecision = null;
+      _eventNote = 'نتيجة القرار: ${option.resultNote}';
+      _recordSnapshot();
+    });
+    _save();
+    GameFeel.playSuccess(soundOn: _soundOn);
+  }
+
   void _advanceWeeks(int count) {
     if (_state.isBankrupt) return;
     final prevSnap = WeekSnapshot.fromState(_state);
+    final prevModelLevel = _state.modelLevel;
     final wasEnded = _state.isBankrupt || _state.leadershipVictory;
 
     setState(() {
@@ -193,9 +255,16 @@ class _ManagementScreenState extends State<ManagementScreen> {
         );
         _eventSceneDismissed = false;
         _eventNote = null;
+        _manualBoostAvailable = true;
+        _claimedPulseIds.clear();
+        _pulses = generateWeeklyPulses(_state.week, _state);
+        _activeDecision = _lastReport!.worldEvent.isEmpty
+            ? pickDecisionForWeek(_state.week)
+            : null;
         _recordSnapshot();
 
         if (_lastReport!.worldEvent.isNotEmpty ||
+            _activeDecision != null ||
             _state.isBankrupt ||
             _state.leadershipVictory) {
           break;
@@ -226,6 +295,19 @@ class _ManagementScreenState extends State<ManagementScreen> {
           );
         });
       }
+    } else if (_state.modelLevel > prevModelLevel && mounted) {
+      GameFeel.playImportant(soundOn: _soundOn);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showLaunchHypeModal(
+          context: context,
+          title: 'إنجاز تقني: نموذجك بلغ المستوى ${_state.modelLevel}!',
+          subtitle:
+              'ارتفع تصنيف $_companyName أمام OpenMind وAnthroCore وDeepVortex!',
+          state: _state,
+          isModelUpgrade: true,
+        );
+      });
     } else {
       GameFeel.playAction(soundOn: _soundOn);
     }
@@ -238,6 +320,10 @@ class _ManagementScreenState extends State<ManagementScreen> {
       _lastReport = null;
       _lastDelta = null;
       _history = [WeekSnapshot.fromState(_state)];
+      _pulses = generateWeeklyPulses(_state.week, _state);
+      _claimedPulseIds.clear();
+      _manualBoostAvailable = true;
+      _activeDecision = null;
       _streakWeeks = 0;
       _eventSceneDismissed = false;
       _eventNote = null;
@@ -340,6 +426,10 @@ class _ManagementScreenState extends State<ManagementScreen> {
       setState(() {
         _state = restored;
         _history = [WeekSnapshot.fromState(restored)];
+        _pulses = generateWeeklyPulses(restored.week, restored);
+        _claimedPulseIds.clear();
+        _manualBoostAvailable = true;
+        _activeDecision = null;
         _lastDelta = null;
         _lastReport = null;
         _endgameShown = restored.isBankrupt || restored.leadershipVictory;
@@ -368,12 +458,18 @@ class _ManagementScreenState extends State<ManagementScreen> {
     await prefs.remove(_nameKey);
     await prefs.remove(_careerKey);
     await prefs.remove(_tutorialKey);
+    await prefs.remove(_unlockAllKey);
     if (!mounted) return;
     setState(() {
       _state = ManagementState();
       _career = const CareerStats();
       _companyName = 'إمبراطورية الذكاء';
       _history = [WeekSnapshot.fromState(_state)];
+      _pulses = generateWeeklyPulses(_state.week, _state);
+      _claimedPulseIds.clear();
+      _manualBoostAvailable = true;
+      _activeDecision = null;
+      _unlockAllSystems = false;
       _lastReport = null;
       _lastDelta = null;
       _streakWeeks = 0;
@@ -405,21 +501,28 @@ class _ManagementScreenState extends State<ManagementScreen> {
     );
   }
 
-  Widget _buildActiveTab() {
+  Widget _buildActiveTab(ProgressionUnlock progression) {
     final s = _state;
     switch (_navIndex) {
       case 0:
         return OverviewTab(
           companyName: _companyName,
           state: s,
+          progression: progression,
           lastReport: _lastReport,
           lastDelta: _lastDelta,
-          history: _history,
+          pulses: _pulses,
+          claimedPulseIds: _claimedPulseIds,
+          manualBoostAvailable: _manualBoostAvailable,
+          activeDecision: _activeDecision,
           streakWeeks: _streakWeeks,
           tutorialStep: _tutorialStep,
           eventSceneDismissed: _eventSceneDismissed,
           eventNote: _eventNote,
           onJump: _jumpTo,
+          onManualBoost: _doManualBoost,
+          onClaimPulse: _claimPulse,
+          onChooseDecision: _chooseDecision,
           onBuyTutorialData: () {
             final affordable = ManagementState.dataCatalog
                 .where((d) => s.cash >= d.cost)
@@ -503,33 +606,45 @@ class _ManagementScreenState extends State<ManagementScreen> {
       case 1:
         return TechTab(
           state: s,
+          progression: progression,
           subIndex: _techSub,
           onSubChanged: (i) => setState(() => _techSub = i),
+          onUnlockAll: _unlockAllNow,
           onMutate: _mutate,
         );
       case 2:
         return MarketTab(
           companyName: _companyName,
           state: s,
+          progression: progression,
           subIndex: _marketSub,
           onSubChanged: (i) => setState(() => _marketSub = i),
+          onUnlockAll: _unlockAllNow,
           onMutate: _mutate,
         );
       case 3:
-        return CompanyTab(
+      default:
+        return EmpireTab(
+          companyName: _companyName,
           state: s,
-          subIndex: _companySub,
-          onSubChanged: (i) => setState(() => _companySub = i),
+          progression: progression,
+          history: _history,
+          streakWeeks: _streakWeeks,
+          subIndex: _empireSub,
+          onSubChanged: (i) => setState(() => _empireSub = i),
+          onUnlockAll: _unlockAllNow,
           onMutate: _mutate,
         );
-      case 4:
-      default:
-        return ProgressTab(state: s, streakWeeks: _streakWeeks);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final progression = ProgressionUnlock.fromState(
+      _state,
+      unlockAllOverride: _unlockAllSystems,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: InkWell(
@@ -580,14 +695,17 @@ class _ManagementScreenState extends State<ManagementScreen> {
         children: [
           CommandHud(
             state: _state,
-            tutorialStep: _tutorialStep,
             saveStatus: _saveStatus,
+            onJump: _jumpTo,
+          ),
+          Expanded(child: _buildActiveTab(progression)),
+          BottomActionDock(
+            isBankrupt: _state.isBankrupt,
+            highlightAdvance: _tutorialStep == 0 || _tutorialStep == 2,
             onAdvanceWeek: () => _advanceWeeks(1),
             onFastForward: () => _advanceWeeks(4),
             onSave: _save,
-            onJump: _jumpTo,
           ),
-          Expanded(child: _buildActiveTab()),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -599,12 +717,12 @@ class _ManagementScreenState extends State<ManagementScreen> {
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'القيادة',
+            label: 'المقر',
           ),
           NavigationDestination(
             icon: Icon(Icons.psychology_outlined),
             selectedIcon: Icon(Icons.psychology_rounded),
-            label: 'التقنية',
+            label: 'التطوير',
           ),
           NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
@@ -612,14 +730,9 @@ class _ManagementScreenState extends State<ManagementScreen> {
             label: 'السوق',
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_balance_outlined),
-            selectedIcon: Icon(Icons.account_balance_rounded),
-            label: 'الشركة',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events_rounded),
-            label: 'الإنجاز',
+            icon: Icon(Icons.workspace_premium_outlined),
+            selectedIcon: Icon(Icons.workspace_premium_rounded),
+            label: 'الإمبراطورية',
           ),
         ],
       ),
