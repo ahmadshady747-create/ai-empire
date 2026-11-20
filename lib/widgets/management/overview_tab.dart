@@ -8,6 +8,7 @@ import '../../interactive/progression_stages.dart';
 import '../../interactive/rival_brands.dart';
 import '../../live_scene.dart';
 import '../../management.dart';
+import '../../story/story_engine.dart';
 import '../../theme/empire_theme.dart';
 import '../../tutorial.dart';
 import '../../world_events.dart';
@@ -17,10 +18,9 @@ import 'interactive_hq_bar.dart';
 import 'live_ticker.dart';
 import 'ui_components.dart';
 
-/// شاشة المقر النخبوية (الإصدار 3.0):
-/// نظيفة، تفاعلية، وخالية من التكدّس — تجمع شريط الأخبار الحية،
-/// بطاقة القرار العاجل، تعزيز التدريب اليدوي باللمس، نبضات المقر،
-/// مشهد الأفق الرقمي ضد OpenMind وAnthroCore وDeepVortex، وأهم توصية استراتيجية واحدة.
+/// شاشة المقر التفاعلية (الإصدار 4.0 Mega Edition):
+/// تجمع شريط الأخبار الحية، القصة والدليل، اللعبة المصغرة لتدريب الشبكة العصبية،
+/// نبضات المقر، بطاقة القرار العاجل، والمجسمات ثلاثية الأبعاد الأيزومترية.
 class OverviewTab extends StatelessWidget {
   final String companyName;
   final ManagementState state;
@@ -29,14 +29,18 @@ class OverviewTab extends StatelessWidget {
   final WeekDelta? lastDelta;
   final List<HqPulse> pulses;
   final Set<String> claimedPulseIds;
-  final bool manualBoostAvailable;
+  final bool miniGameAvailable;
+  final bool highVisualEffects;
+  final int completedStoryCount;
   final DecisionCardModel? activeDecision;
   final int streakWeeks;
   final int tutorialStep;
   final bool eventSceneDismissed;
   final String? eventNote;
   final void Function(int navIndex, int subIndex) onJump;
-  final VoidCallback onManualBoost;
+  final VoidCallback onPlayMiniGame;
+  final VoidCallback onOpenStoryJournal;
+  final VoidCallback onOpenGuide;
   final void Function(HqPulse pulse) onClaimPulse;
   final void Function(DecisionOption option) onChooseDecision;
   final VoidCallback onBuyTutorialData;
@@ -56,14 +60,18 @@ class OverviewTab extends StatelessWidget {
     required this.lastDelta,
     required this.pulses,
     required this.claimedPulseIds,
-    required this.manualBoostAvailable,
+    required this.miniGameAvailable,
+    required this.highVisualEffects,
+    required this.completedStoryCount,
     required this.activeDecision,
     required this.streakWeeks,
     required this.tutorialStep,
     required this.eventSceneDismissed,
     required this.eventNote,
     required this.onJump,
-    required this.onManualBoost,
+    required this.onPlayMiniGame,
+    required this.onOpenStoryJournal,
+    required this.onOpenGuide,
     required this.onClaimPulse,
     required this.onChooseDecision,
     required this.onBuyTutorialData,
@@ -232,7 +240,7 @@ class OverviewTab extends StatelessWidget {
         children: [
           LiveMarketTicker(lastReport: lastReport, week: s.week),
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 9),
             child: Row(
               children: [
                 EmpireBadge(
@@ -240,14 +248,21 @@ class OverviewTab extends StatelessWidget {
                   color: EmpireColors.indigo,
                 ),
                 const Spacer(),
-                Text(
-                  'صافي الأسبوع: ${s.weeklyNet >= 0 ? '+${s.weeklyNet}' : '${s.weeklyNet}'}',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: s.weeklyNet >= 0
-                        ? EmpireColors.emerald
-                        : EmpireColors.coral,
+                InkWell(
+                  onTap: onOpenStoryJournal,
+                  borderRadius: BorderRadius.circular(14),
+                  child: EmpireBadge(
+                    text: 'القصة $completedStoryCount/${storyChapters.length}',
+                    color: EmpireColors.gold,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: onOpenGuide,
+                  borderRadius: BorderRadius.circular(14),
+                  child: const EmpireBadge(
+                    text: 'الدليل',
+                    color: EmpireColors.sky,
                   ),
                 ),
               ],
@@ -289,17 +304,17 @@ class OverviewTab extends StatelessWidget {
               accent: EmpireColors.cyan,
               icon: Icons.bolt_rounded,
             ),
-          if (manualBoostAvailable && !s.isBankrupt)
+          if (miniGameAvailable && !s.isBankrupt)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: ElevatedButton.icon(
-                onPressed: onManualBoost,
+                onPressed: onPlayMiniGame,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: EmpireColors.indigo,
-                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                icon: const Icon(Icons.flash_on_rounded, color: EmpireColors.gold),
-                label: const Text('ضبط سريع للنموذج الآن (+4 تدريب مجاناً)'),
+                icon: const Icon(Icons.sports_esports_rounded, color: EmpireColors.gold),
+                label: const Text('العب تحدي الشبكة العصبية (10 ثوانٍ لتسريع النموذج ⚡)'),
               ),
             ),
           InteractiveHqBar(
@@ -319,6 +334,7 @@ class OverviewTab extends StatelessWidget {
             reputation: s.reputation,
             isBankrupt: s.isBankrupt,
             leadershipVictory: s.leadershipVictory,
+            highVisualEffects: highVisualEffects,
           ),
           _buildTopAdvisorCard(),
           if (lastReport != null && lastReport!.lines.isNotEmpty) ...[

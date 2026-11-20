@@ -5,27 +5,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../analytics/career_stats.dart';
 import '../analytics/company_history.dart';
-import '../game_feel.dart';
+import '../audio/empire_audio.dart';
 import '../interactive/decision_cards.dart';
 import '../interactive/hq_pulses.dart';
 import '../interactive/progression_stages.dart';
 import '../management.dart';
+import '../settings/game_settings.dart';
+import '../story/story_engine.dart';
 import '../theme/empire_theme.dart';
 import '../tutorial.dart';
 import '../widgets/management/bottom_action_dock.dart';
 import '../widgets/management/command_hud.dart';
 import '../widgets/management/empire_tab.dart';
 import '../widgets/management/endgame_modal.dart';
+import '../widgets/management/game_guide_sheet.dart';
 import '../widgets/management/launch_hype_modal.dart';
 import '../widgets/management/market_tab.dart';
+import '../widgets/management/neural_minigame_modal.dart';
 import '../widgets/management/overview_tab.dart';
 import '../widgets/management/settings_sheet.dart';
+import '../widgets/management/story_dialog.dart';
 import '../widgets/management/tech_tab.dart';
 
-/// لوحة إدارة "إمبراطورية الذكاء الاصطناعي" — الإصدار 3.0 النخبوي:
-/// واجهة أبسط بـ 4 محاور رئيسية (المقر، التطوير، السوق، الإمبراطورية)،
-/// شريط علوي نحيف، شريط أفعال سفلي تحت الإبهام، شركات منافسة شبه حقيقية،
-/// وتفاعل فوري باللمس وبطاقات قرار سريعة.
+/// لوحة إدارة "إمبراطورية الذكاء الاصطناعي" — الإصدار 4.0 Mega Edition:
+/// قصة سينمائية من 6 فصول، لعبة مصغّرة لتدريب الشبكة العصبية،
+/// مجسمات ثلاثية الأبعاد أيزومترية، 8 مؤثرات صوتية مخصصة، إعدادات احترافية،
+/// ودليل قائد مصوّر مع توافق كامل مع الحفظ والاختبارات.
 class ManagementScreen extends StatefulWidget {
   const ManagementScreen({super.key});
 
@@ -39,22 +44,24 @@ class _ManagementScreenState extends State<ManagementScreen> {
   static const _nameKey = 'ai_company_name_v1';
   static const _careerKey = 'ai_career_stats_v1';
   static const _tutorialKey = 'ai_tutorial_done_v1';
-  static const _unlockAllKey = 'ai_unlock_all_v25';
+  static const _settingsKey = 'ai_settings_v40';
+  static const _storyKey = 'ai_story_v40';
 
   ManagementState _state = ManagementState();
   CareerStats _career = const CareerStats();
+  GameSettings _settings = const GameSettings();
+  final Set<String> _completedStoryIds = {};
+
   String _companyName = 'إمبراطورية الذكاء';
   WeekReport? _lastReport;
   WeekDelta? _lastDelta;
   List<WeekSnapshot> _history = [];
   List<HqPulse> _pulses = [];
   final Set<String> _claimedPulseIds = {};
-  bool _manualBoostAvailable = true;
+  bool _miniGameAvailable = true;
   DecisionCardModel? _activeDecision;
-  bool _unlockAllSystems = false;
 
   String? _saveStatus;
-  bool _soundOn = true;
   int _streakWeeks = 0;
   int _tutorialStep = 0;
   bool _eventSceneDismissed = false;
@@ -72,17 +79,33 @@ class _ManagementScreenState extends State<ManagementScreen> {
     _history = [WeekSnapshot.fromState(_state)];
     _pulses = generateWeeklyPulses(_state.week, _state);
     _loadSaved();
-    _loadTutorialDone();
+    _loadPreferences();
   }
 
-  Future<void> _loadTutorialDone() async {
+  Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_tutorialKey) == true && mounted) {
       setState(() => _tutorialStep = 3);
     }
-    if (prefs.getBool(_unlockAllKey) == true && mounted) {
-      setState(() => _unlockAllSystems = true);
+    final rawSettings = prefs.getString(_settingsKey);
+    if (rawSettings != null) {
+      try {
+        final parsed = GameSettings.fromJson(
+          jsonDecode(rawSettings) as Map<String, dynamic>,
+        );
+        if (mounted) setState(() => _settings = parsed);
+      } catch (_) {}
     }
+    final rawStory = prefs.getStringList(_storyKey);
+    if (rawStory != null && mounted) {
+      setState(() => _completedStoryIds.addAll(rawStory));
+    }
+  }
+
+  Future<void> _saveSettings(GameSettings next) async {
+    setState(() => _settings = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_settingsKey, jsonEncode(next.toJson()));
   }
 
   Future<void> _persistTutorialDone(bool done) async {
@@ -91,14 +114,12 @@ class _ManagementScreenState extends State<ManagementScreen> {
   }
 
   Future<void> _unlockAllNow() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_unlockAllKey, true);
+    await _saveSettings(_settings.copyWith(unlockAllSystems: true));
     if (!mounted) return;
     setState(() {
-      _unlockAllSystems = true;
       _eventNote = 'تم فتح جميع الأنظمة المتقدمة فوراً!';
     });
-    GameFeel.playSuccess(soundOn: _soundOn);
+    EmpireAudioEngine.instance.play(EmpireSfx.upgrade, settings: _settings);
   }
 
   void _finishTutorialStep(int next) {
@@ -155,9 +176,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         _saveStatus =
             'تم استئناف إدارة محفوظة — الأسبوع ${restored.week}، النقد ${restored.cash}.';
       });
-    } catch (_) {
-      // حفظ تالف: يُتجاهل وتبدأ إدارة جديدة.
-    }
+    } catch (_) {}
   }
 
   Future<void> _save() async {
@@ -169,6 +188,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
     );
     await prefs.setString(_nameKey, _companyName);
     await prefs.setString(_careerKey, jsonEncode(_career.toJson()));
+    await prefs.setStringList(_storyKey, _completedStoryIds.toList());
     if (!mounted) return;
     setState(() {
       _saveStatus = 'تم حفظ الإدارة (الأسبوع ${_state.week}).';
@@ -195,7 +215,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
       if (_navIndex == 2) _marketSub = subIndex;
       if (_navIndex == 3) _empireSub = subIndex;
     });
-    GameFeel.playSuccess(soundOn: _soundOn);
+    EmpireAudioEngine.instance.play(EmpireSfx.click, settings: _settings);
   }
 
   void _mutate(VoidCallback action) {
@@ -203,18 +223,26 @@ class _ManagementScreenState extends State<ManagementScreen> {
       action();
       _recordSnapshot();
     });
-    GameFeel.playSuccess(soundOn: _soundOn);
+    EmpireAudioEngine.instance.play(EmpireSfx.cash, settings: _settings);
   }
 
-  void _doManualBoost() {
-    if (!_manualBoostAvailable || _state.isBankrupt) return;
+  Future<void> _playNeuralMiniGame() async {
+    if (!_miniGameAvailable || _state.isBankrupt) return;
+    final res = await showNeuralMiniGame(context: context, settings: _settings);
+    if (res == null || !mounted) return;
     setState(() {
-      _state.trainingProgress = (_state.trainingProgress + 4).clamp(0, 100);
-      _manualBoostAvailable = false;
-      _eventNote = 'ضبطت معاملات النموذج يدوياً: +4 تقدم في التدريب!';
+      _state.trainingProgress =
+          (_state.trainingProgress + res.trainingGain).clamp(0, 100);
+      if (res.qualityGain > 0) {
+        _state.dataQuality =
+            (_state.dataQuality + res.qualityGain).clamp(0, 100);
+      }
+      _miniGameAvailable = false;
+      _eventNote =
+          'أنهيت تحدي الشبكة العصبية بنقاط ${res.score}: +${res.trainingGain} تدريب${res.qualityGain > 0 ? ' و+${res.qualityGain} جودة بيانات' : ''}!';
       _recordSnapshot();
     });
-    GameFeel.playSuccess(soundOn: _soundOn);
+    await _save();
   }
 
   void _claimPulse(HqPulse pulse) {
@@ -225,7 +253,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
       _eventNote = 'اقتنصت فرصة المقر: ${pulse.title} (${pulse.rewardLabel})!';
       _recordSnapshot();
     });
-    GameFeel.playSuccess(soundOn: _soundOn);
+    EmpireAudioEngine.instance.play(EmpireSfx.pulse, settings: _settings);
   }
 
   void _chooseDecision(DecisionOption option) {
@@ -236,7 +264,29 @@ class _ManagementScreenState extends State<ManagementScreen> {
       _recordSnapshot();
     });
     _save();
-    GameFeel.playSuccess(soundOn: _soundOn);
+    EmpireAudioEngine.instance.play(EmpireSfx.upgrade, settings: _settings);
+  }
+
+  Future<void> _maybeTriggerStory() async {
+    if (!_settings.storyEnabled || !mounted) return;
+    final chapter = nextPendingStoryChapter(_state, _completedStoryIds);
+    if (chapter == null) return;
+    EmpireAudioEngine.instance.play(EmpireSfx.story, settings: _settings);
+    final chosen = await showStoryChapterDialog(
+      context: context,
+      chapter: chapter,
+    );
+    if (!mounted) return;
+    setState(() {
+      _completedStoryIds.add(chapter.id);
+      if (chosen != null) {
+        chosen.apply(_state);
+        _eventNote = '${chapter.title}: ${chosen.epilogue}';
+        _recordSnapshot();
+      }
+    });
+    await _save();
+    EmpireAudioEngine.instance.play(EmpireSfx.upgrade, settings: _settings);
   }
 
   void _advanceWeeks(int count) {
@@ -255,7 +305,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         );
         _eventSceneDismissed = false;
         _eventNote = null;
-        _manualBoostAvailable = true;
+        _miniGameAvailable = true;
         _claimedPulseIds.clear();
         _pulses = generateWeeklyPulses(_state.week, _state);
         _activeDecision = _lastReport!.worldEvent.isEmpty
@@ -263,10 +313,14 @@ class _ManagementScreenState extends State<ManagementScreen> {
             : null;
         _recordSnapshot();
 
-        if (_lastReport!.worldEvent.isNotEmpty ||
-            _activeDecision != null ||
-            _state.isBankrupt ||
-            _state.leadershipVictory) {
+        final hitStory = _settings.storyEnabled &&
+            nextPendingStoryChapter(_state, _completedStoryIds) != null;
+        if (_state.isBankrupt ||
+            _state.leadershipVictory ||
+            (_settings.autoPauseOnEvents &&
+                (_lastReport!.worldEvent.isNotEmpty ||
+                    _activeDecision != null ||
+                    hitStory))) {
           break;
         }
       }
@@ -281,7 +335,11 @@ class _ManagementScreenState extends State<ManagementScreen> {
 
     _save();
     if (_state.isBankrupt || _state.leadershipVictory) {
-      GameFeel.playImportant(soundOn: _soundOn);
+      EmpireAudioEngine.instance.play(
+        _state.isBankrupt ? EmpireSfx.fail : EmpireSfx.victory,
+        settings: _settings,
+        heavyHaptic: true,
+      );
       if (!wasEnded && !_endgameShown && mounted) {
         _endgameShown = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -296,7 +354,11 @@ class _ManagementScreenState extends State<ManagementScreen> {
         });
       }
     } else if (_state.modelLevel > prevModelLevel && mounted) {
-      GameFeel.playImportant(soundOn: _soundOn);
+      EmpireAudioEngine.instance.play(
+        EmpireSfx.upgrade,
+        settings: _settings,
+        heavyHaptic: true,
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         showLaunchHypeModal(
@@ -309,7 +371,18 @@ class _ManagementScreenState extends State<ManagementScreen> {
         );
       });
     } else {
-      GameFeel.playAction(soundOn: _soundOn);
+      EmpireAudioEngine.instance.play(
+        _lastReport != null && _lastReport!.worldEvent.isNotEmpty
+            ? EmpireSfx.alert
+            : EmpireSfx.click,
+        settings: _settings,
+      );
+      if (_settings.storyEnabled &&
+          nextPendingStoryChapter(_state, _completedStoryIds) != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _maybeTriggerStory();
+        });
+      }
     }
   }
 
@@ -317,12 +390,13 @@ class _ManagementScreenState extends State<ManagementScreen> {
     setState(() {
       _state = ManagementState(cash: startingCash);
       _career = _career.recordNewRun().recordProgress(_state);
+      _completedStoryIds.clear();
       _lastReport = null;
       _lastDelta = null;
       _history = [WeekSnapshot.fromState(_state)];
       _pulses = generateWeeklyPulses(_state.week, _state);
       _claimedPulseIds.clear();
-      _manualBoostAvailable = true;
+      _miniGameAvailable = true;
       _activeDecision = null;
       _streakWeeks = 0;
       _eventSceneDismissed = false;
@@ -428,7 +502,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         _history = [WeekSnapshot.fromState(restored)];
         _pulses = generateWeeklyPulses(restored.week, restored);
         _claimedPulseIds.clear();
-        _manualBoostAvailable = true;
+        _miniGameAvailable = true;
         _activeDecision = null;
         _lastDelta = null;
         _lastReport = null;
@@ -458,18 +532,20 @@ class _ManagementScreenState extends State<ManagementScreen> {
     await prefs.remove(_nameKey);
     await prefs.remove(_careerKey);
     await prefs.remove(_tutorialKey);
-    await prefs.remove(_unlockAllKey);
+    await prefs.remove(_settingsKey);
+    await prefs.remove(_storyKey);
     if (!mounted) return;
     setState(() {
       _state = ManagementState();
       _career = const CareerStats();
+      _settings = const GameSettings();
+      _completedStoryIds.clear();
       _companyName = 'إمبراطورية الذكاء';
       _history = [WeekSnapshot.fromState(_state)];
       _pulses = generateWeeklyPulses(_state.week, _state);
       _claimedPulseIds.clear();
-      _manualBoostAvailable = true;
+      _miniGameAvailable = true;
       _activeDecision = null;
-      _unlockAllSystems = false;
       _lastReport = null;
       _lastDelta = null;
       _streakWeeks = 0;
@@ -485,10 +561,10 @@ class _ManagementScreenState extends State<ManagementScreen> {
     showEmpireSettingsSheet(
       context: context,
       companyName: _companyName,
-      soundOn: _soundOn,
+      settings: _settings,
       careerStats: _career,
       saveJson: jsonEncode(_state.toJson()),
-      onToggleSound: () => setState(() => _soundOn = !_soundOn),
+      onSettingsChanged: _saveSettings,
       onReplayTutorial: () {
         setState(() {
           _tutorialStep = 0;
@@ -496,6 +572,11 @@ class _ManagementScreenState extends State<ManagementScreen> {
         });
         _persistTutorialDone(false);
       },
+      onOpenGuide: () => showGameGuideSheet(context),
+      onOpenStoryJournal: () => showStoryJournalSheet(
+        context: context,
+        completedChapterIds: _completedStoryIds,
+      ),
       onImportSave: _importSaveJson,
       onDeleteAllData: _deleteAllLocalData,
     );
@@ -513,14 +594,21 @@ class _ManagementScreenState extends State<ManagementScreen> {
           lastDelta: _lastDelta,
           pulses: _pulses,
           claimedPulseIds: _claimedPulseIds,
-          manualBoostAvailable: _manualBoostAvailable,
+          miniGameAvailable: _miniGameAvailable,
+          highVisualEffects: _settings.highVisualEffects,
+          completedStoryCount: _completedStoryIds.length,
           activeDecision: _activeDecision,
           streakWeeks: _streakWeeks,
           tutorialStep: _tutorialStep,
           eventSceneDismissed: _eventSceneDismissed,
           eventNote: _eventNote,
           onJump: _jumpTo,
-          onManualBoost: _doManualBoost,
+          onPlayMiniGame: _playNeuralMiniGame,
+          onOpenStoryJournal: () => showStoryJournalSheet(
+            context: context,
+            completedChapterIds: _completedStoryIds,
+          ),
+          onOpenGuide: () => showGameGuideSheet(context),
           onClaimPulse: _claimPulse,
           onChooseDecision: _chooseDecision,
           onBuyTutorialData: () {
@@ -642,7 +730,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
   Widget build(BuildContext context) {
     final progression = ProgressionUnlock.fromState(
       _state,
-      unlockAllOverride: _unlockAllSystems,
+      unlockAllOverride: _settings.unlockAllSystems,
     );
 
     return Scaffold(
@@ -680,9 +768,13 @@ class _ManagementScreenState extends State<ManagementScreen> {
             onPressed: _confirmReset,
           ),
           IconButton(
-            icon: Icon(_soundOn ? Icons.volume_up : Icons.volume_off),
-            tooltip: _soundOn ? 'كتم الصوت' : 'تشغيل الصوت',
-            onPressed: () => setState(() => _soundOn = !_soundOn),
+            icon: Icon(
+              _settings.soundEnabled ? Icons.volume_up : Icons.volume_off,
+            ),
+            tooltip: _settings.soundEnabled ? 'كتم الصوت' : 'تشغيل الصوت',
+            onPressed: () => _saveSettings(
+              _settings.copyWith(soundEnabled: !_settings.soundEnabled),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.settings_rounded),
@@ -712,6 +804,7 @@ class _ManagementScreenState extends State<ManagementScreen> {
         selectedIndex: _navIndex,
         onDestinationSelected: (index) {
           setState(() => _navIndex = index);
+          EmpireAudioEngine.instance.play(EmpireSfx.click, settings: _settings);
         },
         destinations: const [
           NavigationDestination(
